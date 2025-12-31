@@ -15,12 +15,14 @@ import {
   Col,
   Modal,
   message,
+  Tooltip,
 } from 'antd';
 import {
   LoadingOutlined,
   DownloadOutlined,
   PictureOutlined,
   ExclamationCircleOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
 import type {
@@ -31,6 +33,7 @@ import type {
   ImageStyle,
   DownloadFormat,
 } from '../types';
+import { DALL_E_2_SIZES, DALL_E_3_SIZES } from '../types';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -41,11 +44,53 @@ const QUALITY_OPTIONS: { value: ImageQuality; label: string }[] = [
   { value: 'hd', label: 'HD' },
 ];
 
-const SIZE_OPTIONS: { value: ImageSize; label: string }[] = [
-  { value: '1024x1024', label: '1024 x 1024' },
-  { value: '1792x1024', label: '1792 x 1024' },
-  { value: '1024x1792', label: '1024 x 1792' },
-];
+// Helper to get quality options based on model (DALL-E 2 doesn't support HD)
+const getQualityOptions = (modelName: string | null): { value: ImageQuality; label: string }[] => {
+  if (modelName === 'dall-e-2') {
+    return [{ value: 'standard', label: 'Standard' }];
+  }
+  return QUALITY_OPTIONS;
+};
+
+// Helper to get size options based on model
+const getSizeOptions = (modelName: string | null): { value: ImageSize; label: string }[] => {
+  if (modelName === 'dall-e-2') {
+    return DALL_E_2_SIZES.map((size) => ({
+      value: size,
+      label: size === '256x256' ? '256 x 256' :
+             size === '512x512' ? '512 x 512' :
+             size === '1024x1536' ? '1024 x 1536 (Portrait)' :
+             size === '1536x1024' ? '1536 x 1024 (Landscape)' :
+             size === 'auto' ? 'Auto' :
+             size.replace('x', ' x '),
+    }));
+  }
+  // Default to DALL-E 3 sizes
+  return DALL_E_3_SIZES.map((size) => ({
+    value: size,
+    label: size === '1024x1024' ? '1024 x 1024' :
+           size === '1024x1536' ? '1024 x 1536 (Portrait)' :
+           size === '1536x1024' ? '1536 x 1024 (Landscape)' :
+           size === 'auto' ? 'Auto' :
+           size.replace('x', ' x '),
+  }));
+};
+
+// Helper to check if a size is valid for a model
+const isSizeValidForModel = (size: ImageSize, modelName: string | null): boolean => {
+  if (modelName === 'dall-e-2') {
+    return DALL_E_2_SIZES.includes(size);
+  }
+  return DALL_E_3_SIZES.includes(size);
+};
+
+// Helper to get a default size for a model
+const getDefaultSizeForModel = (modelName: string | null): ImageSize => {
+  if (modelName === 'dall-e-2') {
+    return '1024x1024';
+  }
+  return '1024x1024';
+};
 
 const STYLE_OPTIONS: { value: ImageStyle; label: string }[] = [
   { value: 'vivid', label: 'Vivid' },
@@ -80,6 +125,20 @@ export default function Home(): React.ReactElement {
   const [type, setType] = useState<DownloadFormat>('webp');
 
   // ============ Effects ============
+  // Reset size to valid option when model changes
+  useEffect(() => {
+    if (model && !isSizeValidForModel(size, model)) {
+      setSize(getDefaultSizeForModel(model));
+    }
+  }, [model, size]);
+
+  // Reset quality to standard when switching to DALL-E 2 (no HD support)
+  useEffect(() => {
+    if (model === 'dall-e-2' && quality === 'hd') {
+      setQuality('standard');
+    }
+  }, [model, quality]);
+
   useEffect(() => {
     const fetchConfig = async (): Promise<void> => {
       try {
@@ -251,7 +310,7 @@ export default function Home(): React.ReactElement {
                   value={quality}
                   onChange={setQuality}
                   style={{ width: '100%', marginTop: 4 }}
-                  options={QUALITY_OPTIONS}
+                  options={getQualityOptions(model)}
                 />
               </Col>
 
@@ -261,7 +320,7 @@ export default function Home(): React.ReactElement {
                   value={size}
                   onChange={setSize}
                   style={{ width: '100%', marginTop: 4 }}
-                  options={SIZE_OPTIONS}
+                  options={getSizeOptions(model)}
                 />
               </Col>
 
@@ -286,6 +345,15 @@ export default function Home(): React.ReactElement {
                   style={{ width: 200, marginLeft: 8 }}
                   options={STYLE_OPTIONS}
                 />
+                <Tooltip
+                  title={
+                    style === 'vivid'
+                      ? 'Vivid style causes the model to lean towards generating hyper-real and dramatic images'
+                      : 'Natural style causes the model to produce more natural, less hyper-real looking images'
+                  }
+                >
+                  <InfoCircleOutlined style={{ marginLeft: 8, color: '#5f9ea0', cursor: 'help' }} />
+                </Tooltip>
               </div>
             )}
 

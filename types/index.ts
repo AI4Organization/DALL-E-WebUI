@@ -12,9 +12,25 @@ export interface OpenAIImageResult {
 
 // ============ Image Generation Types ============
 export type ImageQuality = 'standard' | 'hd';
-export type ImageSize = '1024x1024' | '1792x1024' | '1024x1792';
+
+// DALL-E 2 sizes: 256x256, 512x512, 1024x1024
+// DALL-E 3 sizes: 1024x1024, 1024x1536, 1536x1024, auto
+export type ImageSize =
+  // DALL-E 2 sizes
+  | '256x256'
+  | '512x512'
+  | '1024x1024'
+  // DALL-E 3 sizes
+  | '1024x1536'
+  | '1536x1024'
+  | 'auto';
+
 export type ImageStyle = 'vivid' | 'natural';
 export type DownloadFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif';
+
+// Model-specific size options
+export const DALL_E_2_SIZES: readonly ImageSize[] = ['256x256', '512x512', '1024x1024'] as const;
+export const DALL_E_3_SIZES: readonly ImageSize[] = ['1024x1024', '1024x1536', '1536x1024', 'auto'] as const;
 
 export interface ModelOption {
   value: string;
