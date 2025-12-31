@@ -109,7 +109,7 @@ const FORMAT_OPTIONS: { value: DownloadFormat; label: string }[] = [
 export default function Home(): React.ReactElement {
   // ============ State ============
   const [prompt, setPrompt] = useState<string>('');
-  const [number, setNumber] = useState<number>(1);
+  const [number, setNumber] = useState<number>(4);
   const [results, setResults] = useState<OpenAIImageResult[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
@@ -132,12 +132,14 @@ export default function Home(): React.ReactElement {
     }
   }, [model, size]);
 
-  // Reset quality to standard when switching to DALL-E 2 (no HD support)
+  // Reset quality based on model: standard for DALL-E 2, hd for DALL-E 3
   useEffect(() => {
-    if (model === 'dall-e-2' && quality === 'hd') {
+    if (model === 'dall-e-2') {
       setQuality('standard');
+    } else if (model === 'dall-e-3') {
+      setQuality('hd');
     }
-  }, [model, quality]);
+  }, [model]);
 
   useEffect(() => {
     const fetchConfig = async (): Promise<void> => {
@@ -306,15 +308,18 @@ export default function Home(): React.ReactElement {
                 />
               </Col>
 
-              <Col xs={24} sm={12} md={6}>
-                <Text strong>Quality:</Text>
-                <Select<ImageQuality>
-                  value={quality}
-                  onChange={setQuality}
-                  style={{ width: '100%', marginTop: 4 }}
-                  options={getQualityOptions(model)}
-                />
-              </Col>
+              {/* Quality (dall-e-3 and other models that support HD, not dall-e-2) */}
+              {model !== 'dall-e-2' && (
+                <Col xs={24} sm={12} md={6}>
+                  <Text strong>Quality:</Text>
+                  <Select<ImageQuality>
+                    value={quality}
+                    onChange={setQuality}
+                    style={{ width: '100%', marginTop: 4 }}
+                    options={getQualityOptions(model)}
+                  />
+                </Col>
+              )}
 
               <Col xs={24} sm={12} md={6}>
                 <Text strong>Size:</Text>
