@@ -7,7 +7,11 @@
 ![Xnapper-2023-01-15-23 41 21](https://github.com/AI4Organization/DALL-E-3-WebUI/blob/develop/assets/CleanShot%202023-11-12%20at%2022.26.36%402x.png)
 
 ## Requirement
-- Get the API token via https://beta.openai.com/account/api-keys. Create `.env` file from `.env.example` file and assign API key to OPENAI_API_KEY.
+
+- Create `.env` file from `.env.example` file with the following variables:
+  - `OPENAI_API_KEY` - Your API key (get from <https://platform.openai.com/docs/quickstart> or OpenRouter from <https://openrouter.ai/settings/keys>)
+  - `OPENAI_BASE_URL` - Base URL for the API (default: `https://api.openai.com/v1`)
+  - `OPENAI_MODEL` - Model to use for image generation (default: `dall-e-3`)
 
 ## Getting Started
 1. Clone/Download this project
