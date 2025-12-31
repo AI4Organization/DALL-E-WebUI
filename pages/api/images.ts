@@ -6,6 +6,7 @@ import type {
   ImageQuality,
   ImageSize,
   ImageStyle,
+  OpenAIImageResult,
 } from '../../types';
 
 type ImagesResponse = ImagesApiResponse | { error: string; details?: string[] };
@@ -39,25 +40,11 @@ export default async function handler(
     return res.status(400).json({ error: modelValidation.error ?? 'Invalid model' });
   }
 
-  // Build request parameters
-  const requestParams: {
-    prompt: string;
-    n: number;
-    size: ImageSize;
-    model: string;
-    quality: ImageQuality;
-    style?: ImageStyle;
-  } = {
-    prompt: prompt as string,
-    n: parseInt(n as string, 4),
-    size: size as ImageSize,
-    model: selectedModel as string,
-    quality: quality as ImageQuality,
-  };
+  // Parse n (number of images)
+  const requestedN = parseInt(n as string, 10);
 
-  // Only add style parameter for dall-e-3
+  // Validate style for dall-e-3
   if (selectedModel === 'dall-e-3') {
-    // Validate style for dall-e-3
     if (!style) {
       return res.status(400).json({
         error: 'Missing required parameter',
@@ -68,25 +55,78 @@ export default async function handler(
     if (!styleValidation.valid) {
       return res.status(400).json({ error: styleValidation.error ?? 'Invalid style' });
     }
-    requestParams.style = style as ImageStyle;
   }
 
-  try {
-    const response = await openai.images.generate(requestParams);
-    console.log(response.data);
-    if (!response.data) {
-      return res.status(500).json({
+  // DALL-E 3 only supports n=1, so we need to make multiple calls if n > 1
+  if (selectedModel === 'dall-e-3') {
+    try {
+      const results: OpenAIImageResult[] = [];
+
+      // Make multiple API calls, one for each image
+      for (let i = 0; i < requestedN; i++) {
+        const requestParams = {
+          prompt: prompt as string,
+          n: 1, // DALL-E 3 only supports n=1
+          size: size as ImageSize,
+          model: selectedModel as string,
+          quality: quality as ImageQuality,
+          style: style as ImageStyle,
+        };
+
+        const response = await openai.images.generate(requestParams);
+
+        if (response.data && response.data.length > 0) {
+          results.push(...response.data);
+        }
+      }
+
+      res.status(200).json({ result: results });
+    } catch (error) {
+      console.error('Image generation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({
         error: 'Failed to generate image',
-        details: ['No data returned from API']
+        details: [errorMessage]
       });
     }
-    res.status(200).json({ result: response.data });
-  } catch (error) {
-    console.error('Image generation error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({
-      error: 'Failed to generate image',
-      details: [errorMessage]
-    });
+  } else {
+    // DALL-E 2 and other models support n > 1 in a single call
+    const requestParams: {
+      prompt: string;
+      n: number;
+      size: ImageSize;
+      model: string;
+      quality?: ImageQuality;
+    } = {
+      prompt: prompt as string,
+      n: requestedN,
+      size: size as ImageSize,
+      model: selectedModel as string,
+    };
+
+    // DALL-E 2 doesn't support quality parameter
+    if (selectedModel !== 'dall-e-2') {
+      requestParams.quality = quality as ImageQuality;
+    }
+
+    try {
+      const response = await openai.images.generate(requestParams);
+
+      if (!response.data) {
+        return res.status(500).json({
+          error: 'Failed to generate image',
+          details: ['No data returned from API']
+        });
+      }
+
+      res.status(200).json({ result: response.data });
+    } catch (error) {
+      console.error('Image generation error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({
+        error: 'Failed to generate image',
+        details: [errorMessage]
+      });
+    }
   }
 }

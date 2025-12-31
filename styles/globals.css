@@ -250,6 +250,146 @@ body {
   background-color: rgba(168, 85, 247, 0.3);
 }
 
+/* Ant Design Dropdown Styling */
+.ant-select-dropdown {
+  background-color: var(--color-card-bg) !important;
+  border: 1px solid var(--color-glass-border) !important;
+  backdrop-filter: blur(20px) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Ensure dropdown items are clearly visible */
+.ant-select-item,
+.ant-select-item-option {
+  color: var(--color-text-primary) !important;
+  background-color: transparent !important;
+}
+
+/* Selected state - clear purple highlight */
+.ant-select-item-option-selected {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Active/hover state */
+.ant-select-item-option-active {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Disabled items */
+.ant-select-item-option-disabled {
+  color: var(--color-text-muted) !important;
+  cursor: not-allowed !important;
+  opacity: 0.5 !important;
+}
+
+/* Empty state */
+.ant-select-item-empty {
+  color: var(--color-text-muted) !important;
+}
+
+/* Light mode specific fixes */
+.light-theme .ant-select-dropdown {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12) !important;
+}
+
+.light-theme .ant-select-item,
+.light-theme .ant-select-item-option {
+  color: #1a1a2e !important;
+  font-weight: 400 !important;
+}
+
+.light-theme .ant-select-item-option-selected {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  color: #0a0a12 !important;
+  font-weight: 500 !important;
+}
+
+.light-theme .ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+  color: #0a0a12 !important;
+}
+
+/* Dark mode specific fixes */
+.dark-theme .ant-select-dropdown {
+  background-color: rgba(15, 15, 25, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark-theme .ant-select-item,
+.dark-theme .ant-select-item-option {
+  color: #ffffff !important;
+}
+
+.dark-theme .ant-select-item-option-selected {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.dark-theme .ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+}
+
+/* Theme-specific dropdown class (for portal-rendered dropdowns) */
+.dark-select-dropdown {
+  background-color: rgba(15, 15, 25, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark-select-dropdown .ant-select-item,
+.dark-select-dropdown .ant-select-item-option {
+  color: #ffffff !important;
+}
+
+.dark-select-dropdown .ant-select-item-option-selected {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.dark-select-dropdown .ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+}
+
+.light-select-dropdown {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12) !important;
+}
+
+.light-select-dropdown .ant-select-item,
+.light-select-dropdown .ant-select-item-option {
+  color: #1a1a2e !important;
+  font-weight: 400 !important;
+}
+
+.light-select-dropdown .ant-select-item-option-selected {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  color: #0a0a12 !important;
+  font-weight: 500 !important;
+}
+
+.light-select-dropdown .ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+  color: #0a0a12 !important;
+}
+
+/* Dropdown header/placeholder text */
+.ant-select-selection-placeholder {
+  color: var(--color-text-muted) !important;
+}
+
+.ant-select-selection-item {
+  color: var(--color-text-primary) !important;
+}
+
 /* Line Clamp Utility */
 .line-clamp-3 {
   display: -webkit-box;

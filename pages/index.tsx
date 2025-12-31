@@ -30,6 +30,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { ValidationDialog, createValidationIssue, type ValidationIssue } from '../components/ValidationDialog';
 import { useTheme } from '../lib/theme';
 import type {
   OpenAIImageResult,
@@ -163,6 +164,8 @@ export default function Home(): React.ReactElement {
   const [results, setResults] = useState<OpenAIImageResult[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
+  const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
+  const [showValidationDialog, setShowValidationDialog] = useState<boolean>(false);
 
   const [model, setModel] = useState<string | null>(null);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
@@ -216,13 +219,115 @@ export default function Home(): React.ReactElement {
 
   // ============ Handlers ============
   const getImages = useCallback(async (): Promise<void> => {
-    if (model === null || prompt.trim() === '') {
-      setError(true);
-      message.error('Please enter a prompt and select a model');
+    // Clear previous errors
+    setError(false);
+    const issues: ValidationIssue[] = [];
+
+    // Client-side validation
+    if (!model) {
+      issues.push(createValidationIssue(
+        'error',
+        'No Model Selected',
+        'Please select an AI model to generate images.',
+        'Choose a model from the "Model" dropdown above.',
+        'model'
+      ));
+    }
+
+    if (!prompt.trim()) {
+      issues.push(createValidationIssue(
+        'error',
+        'Empty Prompt',
+        'Please describe the image you want to create.',
+        'Enter a detailed description in the "Your Prompt" text area.',
+        'prompt'
+      ));
+    } else if (prompt.trim().length < 10) {
+      issues.push(createValidationIssue(
+        'warning',
+        'Prompt Too Short',
+        'Your prompt is quite short. More detailed prompts usually produce better results.',
+        'Try describing your vision in more detail - include style, mood, objects, colors, etc.',
+        'prompt'
+      ));
+    }
+
+    if (number < 1) {
+      issues.push(createValidationIssue(
+        'error',
+        'Invalid Number',
+        'Number of images must be at least 1.',
+        'Set the number between 1 and 10.',
+        'number'
+      ));
+    }
+
+    if (number > 10) {
+      issues.push(createValidationIssue(
+        'error',
+        'Too Many Images',
+        'You can generate up to 10 images at once.',
+        'Reduce the number of images to 10 or less.',
+        'number'
+      ));
+    }
+
+    // Model-specific validation
+    if (model === 'dall-e-3' && number > 1) {
+      issues.push(createValidationIssue(
+        'info',
+        'Multiple Images with DALL-E 3',
+        `You requested ${number} images. DALL-E 3 generates them one at a time, so this will take longer.`,
+        'Consider reducing to 1-2 images for faster generation, or be patient while we create all your images.',
+        'number'
+      ));
+    }
+
+    if (model === 'dall-e-2' && quality === 'hd') {
+      issues.push(createValidationIssue(
+        'warning',
+        'HD Quality Not Available',
+        'DALL-E 2 does not support HD quality. It will use standard quality instead.',
+        'Switch to DALL-E 3 for HD quality images, or keep standard quality for faster generation.',
+        'quality'
+      ));
+    }
+
+    if (model === 'dall-e-2' && !DALL_E_2_SIZES.includes(size)) {
+      issues.push(createValidationIssue(
+        'error',
+        'Invalid Size for DALL-E 2',
+        `The size "${size}" is not supported by DALL-E 2.`,
+        'Choose a supported size: 256x256, 512x512, or 1024x1024.',
+        'size'
+      ));
+    }
+
+    if (model === 'dall-e-3' && !DALL_E_3_SIZES.includes(size)) {
+      issues.push(createValidationIssue(
+        'error',
+        'Invalid Size for DALL-E 3',
+        `The size "${size}" is not supported by DALL-E 3.`,
+        'Choose a supported size: 1024x1024, 1792x1024, 1024x1792, or auto.',
+        'size'
+      ));
+    }
+
+    // If there are errors, show dialog
+    const errors = issues.filter(i => i.type === 'error');
+    if (errors.length > 0) {
+      setValidationIssues(errors);
+      setShowValidationDialog(true);
       return;
     }
 
-    setError(false);
+    // If there are warnings, show them but proceed
+    const warnings = issues.filter(i => i.type === 'warning' || i.type === 'info');
+    if (warnings.length > 0) {
+      setValidationIssues(warnings);
+      setShowValidationDialog(true);
+    }
+
     setLoading(true);
 
     const queryParams = new URLSearchParams({
@@ -243,7 +348,22 @@ export default function Home(): React.ReactElement {
     } catch (err) {
       console.error('API error:', err);
       setError(true);
-      message.error('Failed to generate images. Please try again.');
+
+      // Handle API errors with helpful messages
+      const axiosError = err as { response?: { data?: { error: string; details?: string[] } } };
+      if (axiosError.response?.data) {
+        setValidationIssues([
+          createValidationIssue(
+            'error',
+            'Generation Failed',
+            axiosError.response.data.error || 'Failed to generate images.',
+            axiosError.response.data.details?.join('\n') || 'Please try again with different settings.'
+          )
+        ]);
+        setShowValidationDialog(true);
+      } else {
+        message.error('Failed to generate images. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -277,6 +397,21 @@ export default function Home(): React.ReactElement {
 
       {/* Theme Toggle Button */}
       <ThemeToggle />
+
+      {/* Validation Dialog */}
+      <ValidationDialog
+        visible={showValidationDialog}
+        issues={validationIssues}
+        onDismiss={() => setShowValidationDialog(false)}
+        onFix={(field) => {
+          // Auto-fix logic
+          if (field === 'number' && number > 10) setNumber(Math.min(number, 10));
+          if (field === 'number' && number < 1) setNumber(1);
+          if (field === 'quality' && model === 'dall-e-2') setQuality('standard');
+          if (field === 'size' && model === 'dall-e-2') setSize('1024x1024');
+          if (field === 'size' && model === 'dall-e-3') setSize('auto');
+        }}
+      />
 
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
@@ -403,8 +538,8 @@ export default function Home(): React.ReactElement {
                       placeholder="Select model"
                       options={availableModels}
                       className="w-full"
-                      popupClassName="dark-dropdown"
-                    />
+                      popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                                          />
                   </Col>
 
                   {/* Quality */}
@@ -418,8 +553,8 @@ export default function Home(): React.ReactElement {
                         onChange={setQuality}
                         options={getQualityOptions(model)}
                         className="w-full"
-                        popupClassName="dark-dropdown"
-                      />
+                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                                              />
                     </Col>
                   )}
 
@@ -433,8 +568,8 @@ export default function Home(): React.ReactElement {
                       onChange={setSize}
                       options={getSizeOptions(model)}
                       className="w-full"
-                      popupClassName="dark-dropdown"
-                    />
+                      popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                                          />
                   </Col>
 
                   {/* Format */}
@@ -447,8 +582,8 @@ export default function Home(): React.ReactElement {
                       onChange={setType}
                       options={FORMAT_OPTIONS}
                       className="w-full"
-                      popupClassName="dark-dropdown"
-                    />
+                      popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                                          />
                   </Col>
 
                   {/* Number of Images */}
@@ -485,8 +620,8 @@ export default function Home(): React.ReactElement {
                         onChange={setStyle}
                         options={STYLE_OPTIONS}
                         className="w-full"
-                        popupClassName="dark-dropdown"
-                      />
+                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                                              />
                     </Col>
                   )}
                 </Row>
@@ -502,7 +637,7 @@ export default function Home(): React.ReactElement {
                     icon={loading ? <LoadingOutlined /> : <PictureOutlined />}
                     onClick={handleGenerate}
                     loading={loading}
-                    disabled={configLoading || model === null || prompt.trim() === ''}
+                    disabled={loading || configLoading}
                     block
                     className="glow-button !h-14 !text-lg !font-semibold"
                     style={{
