@@ -130,3 +130,61 @@
   background-color: #fad0e0;
   border-radius: 5px;
 }
+
+/* Configuration Error Dialog */
+.dialogOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 10px;
+  max-width: 500px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dialog h2 {
+  color: #d32f2f;
+  margin-top: 0;
+}
+
+.dialog p {
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+.dialog ul {
+  color: #666;
+  text-align: left;
+  margin: 1rem 0;
+  padding-left: 1.5rem;
+}
+
+.dialog li {
+  margin: 0.5rem 0;
+}
+
+.dialog button {
+  margin-top: 1rem;
+  background-color: cadetblue;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.dialog button:hover {
+  opacity: 0.9;
+}

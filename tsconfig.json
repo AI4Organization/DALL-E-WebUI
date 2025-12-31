@@ -22,8 +22,11 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
+    "lib/*.js",
     "pages/api/images.js",
-    "pages/api/download.js"
+    "pages/api/download.js",
+    "pages/api/config.js",
+    "pages/index.js"
   ],
   "exclude": [
     "node_modules"
