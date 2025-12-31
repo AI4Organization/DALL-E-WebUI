@@ -63,17 +63,15 @@ const getSizeOptions = (modelName: string | null): { value: ImageSize; label: st
       value: size,
       label: size === '256x256' ? '256 x 256' :
              size === '512x512' ? '512 x 512' :
-             size === '1024x1536' ? '1024 x 1536 (Portrait)' :
-             size === '1536x1024' ? '1536 x 1024 (Landscape)' :
-             size === 'auto' ? 'Auto' :
+             size === '1024x1024' ? '1024 x 1024' :
              size.replace('x', ' x '),
     }));
   }
   return DALL_E_3_SIZES.map((size) => ({
     value: size,
-    label: size === '1024x1024' ? '1024 x 1024' :
-           size === '1024x1536' ? '1024 x 1536 (Portrait)' :
-           size === '1536x1024' ? '1536 x 1024 (Landscape)' :
+    label: size === '1024x1024' ? '1024 x 1024 (Square)' :
+           size === '1024x1792' ? '1024 x 1792 (Portrait)' :
+           size === '1792x1024' ? '1792 x 1024 (Landscape)' :
            size === 'auto' ? 'Auto' :
            size.replace('x', ' x '),
   }));
