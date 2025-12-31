@@ -1,4 +1,5 @@
-# DALL-E 3 Web UI (Next.js)
+# DALL-E Web UI (Next.js)
+
 ### Create realistic images and art from a description in natural language.
 
 [![DeepScan grade](https://deepscan.io/api/teams/18632/projects/21948/branches/641242/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=18632&pid=21948&bid=641242)
