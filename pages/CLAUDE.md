@@ -19,11 +19,14 @@ pages/
 ### `index.tsx`
 Main React component containing:
 - State management with proper TypeScript types
-- Ant Design UI components (Input, Select, Button, Card, Image, etc.)
+- Ant Design UI components (Input, Select, Button, Card, Image, Tooltip, etc.)
+- Model selection from UI with DALL-E 3 as default
 - API call to `/api/images` for generation
 - Download functionality via `/api/download`
 - Results grid display with click-to-download
 - Configuration error modal dialog
+- Style dropdown with info icon tooltip explaining each style option
+- Default size: "auto" for DALL-E 3, "1024x1024" for DALL-E 2
 
 ### `_app.tsx`
 Next.js app wrapper that:

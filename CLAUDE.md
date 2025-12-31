@@ -17,13 +17,6 @@ npm run build     # Build for production (TypeScript compilation)
 npm run start     # Start production server (after build)
 ```
 
-### Production/Docker
-```bash
-make start-server-local           # Build and start production server locally
-make start-docker-compose-local   # Start with Docker Compose
-make stop-docker-compose-local    # Stop Docker Compose services
-```
-
 ## Architecture
 
 ### Project Structure
@@ -84,7 +77,8 @@ The app uses a custom Ant Design theme with:
 
 ### Environment
 - Requires `.env` file with `OPENAI_API_KEY` (see `.env.example`)
-- Optional: `OPENAI_BASE_URL` and `OPENAI_MODEL` for custom endpoints
+- Optional: `OPENAI_BASE_URL` for custom endpoints (default: `https://api.openai.com/v1`)
+- Model is selected from the UI (default: DALL-E 3)
 
 ## Ant Design Components Used
 
@@ -104,6 +98,7 @@ The app uses a custom Ant Design theme with:
 | `Typography` | Text components (Title, Text) |
 | `Space` | Layout spacing |
 | `message` | Toast notifications |
+| `Tooltip` | Style info tooltip with contextual help |
 
 ## Type Definitions
 
@@ -126,7 +121,7 @@ type DownloadFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif';
 // API responses
 interface ImagesApiResponse { result: OpenAIImageResult[]; }
 interface DownloadApiResponse { result: string; }
-interface ConfigApiResponse { model: string; availableModels: ModelOption[]; baseURL: string; }
+interface ConfigApiResponse { availableModels: ModelOption[]; baseURL: string; }
 ```
 
 ## Notes
@@ -135,3 +130,6 @@ interface ConfigApiResponse { model: string; availableModels: ModelOption[]; bas
 - TypeScript strict mode catches potential null/undefined issues at compile time
 - The app supports multiple base URLs (OpenAI API and OpenRouter)
 - Configuration errors are displayed in a modal dialog to the user
+- Default model: DALL-E 3
+- Default size for DALL-E 3: "auto" (automatically chooses optimal orientation)
+- Style dropdown shows an info icon with tooltip explaining each style option
