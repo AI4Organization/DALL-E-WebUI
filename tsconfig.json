@@ -5,9 +5,12 @@
       "dom.iterable",
       "esnext"
     ],
-    "allowJs": true,
+    "allowJs": false,
     "skipLibCheck": true,
-    "strict": false,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "incremental": true,
     "esModuleInterop": true,
@@ -21,12 +24,7 @@
   "include": [
     "next-env.d.ts",
     "**/*.ts",
-    "**/*.tsx",
-    "lib/*.js",
-    "pages/api/images.js",
-    "pages/api/download.js",
-    "pages/api/config.js",
-    "pages/index.js"
+    "**/*.tsx"
   ],
   "exclude": [
     "node_modules"
