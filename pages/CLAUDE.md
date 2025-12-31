@@ -6,27 +6,37 @@ This directory contains the Next.js Pages Router structure.
 
 ```
 pages/
-  _app.js           # Next.js App wrapper - applies global styles
-  index.js          # Main application page - UI for DALL-E 3 image generation
+  _app.tsx           # Next.js App wrapper with Ant Design ConfigProvider
+  index.tsx          # Main application page - UI for DALL-E 3 image generation
   api/
-    images.js       # API endpoint for DALL-E 3 image generation
-    download.js     # API endpoint for image format conversion
+    config.ts        # API endpoint for server configuration
+    images.ts        # API endpoint for DALL-E 3 image generation
+    download.ts      # API endpoint for image format conversion
 ```
 
 ## Key Files
 
-### `index.js`
+### `index.tsx`
 Main React component containing:
-- State management for prompt, image count, quality, size, style
+- State management with proper TypeScript types
+- Ant Design UI components (Input, Select, Button, Card, Image, Tooltip, etc.)
+- Model selection from UI with DALL-E 3 as default
 - API call to `/api/images` for generation
 - Download functionality via `/api/download`
 - Results grid display with click-to-download
+- Configuration error modal dialog
+- Style dropdown with info icon tooltip explaining each style option
+- Default size: "auto" for DALL-E 3, "1024x1024" for DALL-E 2
 
-### `_app.js`
-Next.js app wrapper that imports global CSS from `styles/globals.css`.
+### `_app.tsx`
+Next.js app wrapper that:
+- Wraps the app with Ant Design `ConfigProvider`
+- Configures the Ant Design theme (cadetblue primary color)
 
 ## API Routes
 
-Both API routes are in `pages/api/`:
-- **images.js**: Handles OpenAI DALL-E 3 API calls
-- **download.js**: Handles image format conversion using sharp
+All API routes use TypeScript with proper type definitions from `types/index.ts`:
+
+- **config.ts**: Returns server configuration and available models
+- **images.ts**: Handles OpenAI DALL-E 3 API calls
+- **download.ts**: Handles image format conversion using sharp

@@ -1,55 +1,69 @@
-# DALL-E Web UI (Next.js)
+# DALL-E Web UI
 
 ### Create realistic images and art from a description in natural language.
 
-[![DeepScan grade](https://deepscan.io/api/teams/18632/projects/21948/branches/641242/badge/grade.svg)](https://deepscan.io/dashboard#view=project&tid=18632&pid=21948&bid=641242)
-
 ![Xnapper-2023-01-15-23 41 21](https://github.com/AI4Organization/DALL-E-3-WebUI/blob/develop/assets/CleanShot%202023-11-12%20at%2022.26.36%402x.png)
 
-## Requirement
+## Requirements
 
-- Create `.env` file from `.env.example` file with the following variables:
-  - `OPENAI_API_KEY` - Your API key (get from <https://platform.openai.com/docs/quickstart> or OpenRouter from <https://openrouter.ai/settings/keys>)
+- Node.js >= 18.0.0
+- Create `.env` file from `.env.example` with the following variables:
+  - `OPENAI_API_KEY` - Your API key (get from [OpenAI Platform](https://platform.openai.com/docs/quickstart) or [OpenRouter](https://openrouter.ai/settings/keys))
   - `OPENAI_BASE_URL` - Base URL for the API (default: `https://api.openai.com/v1`)
-  - `OPENAI_MODEL` - Model to use for image generation (default: `dall-e-3`)
 
 ## Getting Started
+
 1. Clone/Download this project
-2. Install:
+
+2. Install dependencies:
 ```bash
 npm install
-# or
-yarn
 ```
-3. Run the development server:
+
+3. Create `.env` file from `.env.example` and configure your API credentials
+
+4. Run the development server:
 ```bash
 npm run dev
-# or
-yarn dev
 ```
-4. Run production server:
+
+5. Run production server:
 ```bash
-make start-server-local
-```
-or with docker compse with
-```bash
-make start-docker-compose-local
+npm run build
+npm run start
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
-
 ## Usage
-1. Input token start from `sk-`
-2. Query anything, e.g. `A sleeping cat and flower vase on the kitchen table in the artist Van Gogh style.`:
-<img width="1024" alt="CleanShot 2022-06-18 at 16 36 25@2x" src="https://github.com/AI4Organization/DALL-E-3-WebUI/blob/develop/assets/CleanShot%202023-11-12%20at%2023.02.37%402x.png">
+
+1. Select a model from the dropdown (DALL-E 2, DALL-E 3, or others depending on your base URL)
+2. Configure generation parameters:
+   - **Quality**: Standard or HD (DALL-E 3 only)
+   - **Size**: Auto, 1024x1024, 1024x1536 (Portrait), or 1536x1024 (Landscape)
+   - **Style**: Vivid or Natural (DALL-E 3 only)
+   - **Format**: WebP, PNG, JPG, GIF, or AVIF
+3. Enter your image description in the prompt field
+4. Click "Generate" to create images
+5. Download generated images in your selected format
+
+Example prompt: `A sleeping cat and flower vase on the kitchen table in the artist Van Gogh style.`
+
+## Tech Stack
+
+- **Framework**: Next.js 16.x (Pages Router)
+- **UI Library**: React 19.x with Ant Design 6.x
+- **Type Safety**: TypeScript 5.x (strict mode enabled)
+- **API Client**: OpenAI SDK 6.x
+- **Image Processing**: sharp 0.34.x
+
+## API Routes
+
+The `pages/api` directory is mapped to `/api/*`:
+- `/api/config` - Server configuration and available models
+- `/api/images` - Image generation via OpenAI DALL-E API
+- `/api/download` - Image format conversion
 
 ## Developer Notes
-- Since V2 is using OpenAI official API.
 
-## This project is inspired by the [original one](https://github.com/1998code/DALLE-2-App) with benefits
-- OpenAI SDK latest
-- NextJS v14.x
-- DALL-E 3
-- React latest
+This project uses the OpenAI official API with proper TypeScript typing and Ant Design components.
