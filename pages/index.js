@@ -1,5 +1,5 @@
 import Head from "next/head";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import styles from "../styles/Home.module.css";
 
@@ -12,24 +12,60 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
+  // New state for model configuration
+  const [model, setModel] = useState(null);
+  const [availableModels, setAvailableModels] = useState([]);
+  const [configError, setConfigError] = useState(null);
+  const [configLoading, setConfigLoading] = useState(true);
+
+  // Fetch server configuration on mount
+  useEffect(() => {
+    axios.get('/api/config')
+      .then((res) => {
+        setModel(res.data.model);
+        setAvailableModels(res.data.availableModels);
+        setConfigLoading(false);
+      })
+      .catch((err) => {
+        if (err.response?.status === 500) {
+          setConfigError(err.response.data);
+        } else {
+          setConfigError({
+            error: 'Failed to connect to server',
+            details: ['Please check if the server is running']
+          });
+        }
+        setConfigLoading(false);
+      });
+  }, []);
+
   function getImages() {
-    const token = process.env.OPENAI_API_KEY;
-    if (token != "" && prompt != "") {
-      setError(false);
-      setLoading(true);
-      axios
-        .post(`/api/images?t=${token}&p=${prompt}&n=${number}&q=${quality}&s=${size}&st=${style}`)
-        .then((res) => {
-          setResults(res.data.result);
-          setLoading(false);
-        })
-        .catch((err) => {
-          setLoading(false);
-          setError(true);
-        });
-    } else {
+    if (model == null || prompt === "") {
       setError(true);
+      return;
     }
+
+    setError(false);
+    setLoading(true);
+
+    // Build query parameters
+    let queryParams = `p=${encodeURIComponent(prompt)}&n=${number}&q=${quality}&s=${size}&m=${encodeURIComponent(model)}`;
+    // Only include style for dall-e-3
+    if (model === 'dall-e-3') {
+      queryParams += `&st=${style}`;
+    }
+
+    axios
+      .post(`/api/images?${queryParams}`)
+      .then((res) => {
+        setResults(res.data.result);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('API error:', err);
+        setLoading(false);
+        setError(true);
+      });
   }
 
   const [type, setType] = useState("webp");
@@ -57,9 +93,25 @@ export default function Home() {
         <title>DALL-E 3 Web UI</title>
       </Head>
 
+      {/* Configuration Error Dialog */}
+      {configError && (
+        <div className={styles.dialogOverlay}>
+          <div className={styles.dialog}>
+            <h2>Server Configuration Error</h2>
+            <p>{configError.error}</p>
+            <ul>
+              {configError.details?.map((detail, i) => (
+                <li key={i}>{detail}</li>
+              ))}
+            </ul>
+            <button onClick={() => setConfigError(null)}>Dismiss</button>
+          </div>
+        </div>
+      )}
+
       <main className={styles.main}>
         <h1 className={styles.title}>
-          Create images with <span className={styles.titleColor}>DALL-E 3</span>
+          Create images with <span className={styles.titleColor}>GenAI</span>
         </h1>
         <p className={styles.description}>
           <input
@@ -78,9 +130,27 @@ export default function Home() {
             max="10"
           />
           {"  "}
-          <button onClick={getImages}>Get {number} Images</button>
+          <button onClick={getImages} disabled={configLoading || model == null}>
+            Get {number} Images
+          </button>
         </p>
         <small>
+          Model:{" "}
+          <select
+            style={{ marginRight: '20px' }}
+            id="model"
+            value={model || ''}
+            onChange={(e) => setModel(e.target.value)}
+            disabled={configLoading}>
+            {configLoading ? (
+              <option>Loading...</option>
+            ) : (
+              availableModels.map((m) => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))
+            )}
+          </select>
+
           Quality:{" "}
           <select
             style={{ marginRight: '20px' }}
@@ -102,15 +172,20 @@ export default function Home() {
             <option value="1024x1792">1024x1792</option>
           </select>
 
-          Style:{" "}
-          <select
-            style={{ marginRight: '20px' }}
-            id="style"
-            value={style}
-            onChange={(e) => setStyle(e.target.value)}>
-            <option value="vivid">Vivid</option>
-            <option value="natural">Natural</option>
-          </select>
+          {/* Only show style for dall-e-3 */}
+          {model === 'dall-e-3' && (
+            <>
+              Style:{" "}
+              <select
+                style={{ marginRight: '20px' }}
+                id="style"
+                value={style}
+                onChange={(e) => setStyle(e.target.value)}>
+                <option value="vivid">Vivid</option>
+                <option value="natural">Natural</option>
+              </select>
+            </>
+          )}
 
           Download as:{" "}
           <select
@@ -129,13 +204,14 @@ export default function Home() {
         {error ? (<div className={styles.error}>Something went wrong. Try again.</div>) : (<></>)}
         {loading && <p>Loading...</p>}
         <div className={styles.grid}>
-          {results.map((result) => {
+          {results.map((result, index) => {
             return (
-              <div className={styles.card}>
+              <div className={styles.card} key={index}>
                 <img
                   className={styles.imgPreview}
                   src={result.url}
                   onClick={() => download(result.url)}
+                  alt={`Generated image ${index + 1}`}
                 />
               </div>
             );
