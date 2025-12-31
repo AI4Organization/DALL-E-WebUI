@@ -25,7 +25,6 @@ export default async function handler(
 
   // Return public-safe configuration
   res.status(200).json({
-    model: config.model,
     availableModels: config.availableModels,
     baseURL: config.baseURL
   } as ConfigApiResponse);

@@ -61,7 +61,6 @@ export interface DownloadApiResponse {
 }
 
 export interface ConfigApiResponse {
-  model: string;
   availableModels: ModelOption[];
   baseURL: string;
 }
@@ -74,7 +73,6 @@ export interface ConfigApiErrorResponse {
 // ============ Server Config Types ============
 export interface ServerConfig {
   baseURL: string;
-  model: string;
   isValid: boolean;
   errors: string[];
   availableModels: ModelOption[];
@@ -92,7 +90,6 @@ declare global {
     interface ProcessEnv {
       OPENAI_API_KEY: string;
       OPENAI_BASE_URL: string;
-      OPENAI_MODEL: string;
     }
   }
 }

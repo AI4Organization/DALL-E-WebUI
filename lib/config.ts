@@ -25,7 +25,6 @@ export function getServerConfig(): ServerConfig {
 
   cachedConfig = {
     baseURL: process.env.OPENAI_BASE_URL ?? '',
-    model: process.env.OPENAI_MODEL ?? 'dall-e-3',
     isValid: validation.valid,
     errors: validation.errors ?? [],
     availableModels: BASE_URL_MODELS[process.env.OPENAI_BASE_URL ?? ''] ?? [],

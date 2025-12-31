@@ -89,7 +89,7 @@ const getDefaultSizeForModel = (modelName: string | null): ImageSize => {
   if (modelName === 'dall-e-2') {
     return '1024x1024';
   }
-  return '1024x1024';
+  return 'auto';
 };
 
 const STYLE_OPTIONS: { value: ImageStyle; label: string }[] = [
@@ -120,7 +120,7 @@ export default function Home(): React.ReactElement {
   const [configLoading, setConfigLoading] = useState<boolean>(true);
 
   const [quality, setQuality] = useState<ImageQuality>('standard');
-  const [size, setSize] = useState<ImageSize>('1024x1024');
+  const [size, setSize] = useState<ImageSize>('auto');
   const [style, setStyle] = useState<ImageStyle>('vivid');
   const [type, setType] = useState<DownloadFormat>('webp');
 
@@ -143,8 +143,10 @@ export default function Home(): React.ReactElement {
     const fetchConfig = async (): Promise<void> => {
       try {
         const res = await axios.get('/api/config');
-        setModel(res.data.model);
         setAvailableModels(res.data.availableModels);
+        // Set default model to dall-e-3 if available, otherwise first available model
+        const defaultModel = res.data.availableModels.find((m: ModelOption) => m.value === 'dall-e-3')?.value ?? res.data.availableModels[0]?.value ?? null;
+        setModel(defaultModel);
         setConfigLoading(false);
       } catch (err) {
         const axiosError = err as { response?: { data?: { error: string; details?: string[] }; status?: number } };
@@ -220,7 +222,7 @@ export default function Home(): React.ReactElement {
   return (
     <>
       <Head>
-        <title>DALL-E 3 Web UI</title>
+        <title>DALL-E Web UI</title>
         <meta name="description" content="Generate images with DALL-E 3" />
       </Head>
 

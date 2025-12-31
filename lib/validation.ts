@@ -21,20 +21,11 @@ export function validateEnvVars(): ValidationResult {
   if (!process.env.OPENAI_BASE_URL) {
     errors.push('OPENAI_BASE_URL is required');
   }
-  if (!process.env.OPENAI_MODEL) {
-    errors.push('OPENAI_MODEL is required');
-  }
 
   const baseURL = process.env.OPENAI_BASE_URL;
-  const model = process.env.OPENAI_MODEL;
 
-  if (baseURL && model) {
-    const validModels = BASE_URL_MODELS[baseURL as keyof typeof BASE_URL_MODELS];
-    if (!validModels) {
-      errors.push(`Unknown base URL: ${baseURL}`);
-    } else if (!validModels.includes(model as ValidModel)) {
-      errors.push(`OPENAI_MODEL '${model}' is not valid for '${baseURL}'. Valid models: ${validModels.join(', ')}`);
-    }
+  if (baseURL && !BASE_URL_MODELS[baseURL as keyof typeof BASE_URL_MODELS]) {
+    errors.push(`Unknown base URL: ${baseURL}`);
   }
 
   return { valid: errors.length === 0, errors };
