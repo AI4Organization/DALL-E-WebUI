@@ -3,6 +3,7 @@ import { OpenAI } from 'openai';
 export default async function handler(req, res) {
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
+    baseURL: process.env.OPENAI_BASE_URL,
   });
 
   const { p: prompt, n, s: size, q: quality, st: style } = req.query;
