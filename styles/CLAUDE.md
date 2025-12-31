@@ -1,35 +1,37 @@
 # CLAUDE.md - styles/
 
-This directory contains all CSS styling for the application.
+**Note**: This directory is no longer actively used. The application has been migrated to use Ant Design for all UI components and styling.
 
-## Files
+## Previous Contents
 
-### `globals.css`
-Global CSS styles imported in `pages/_app.js`. Contains base styles applied to the entire application.
+This directory previously contained:
+- `globals.css` - Global CSS styles (removed)
+- `Home.module.css` - Component-scoped styles (removed)
 
-### `Home.module.css`
-CSS Module (component-scoped styles) for `pages/index.js`.
+## Current Styling Approach
 
-**Classes**:
-- `.container` - Main page container
-- `.main` - Main content area
-- `.title` - Page title styling
-- `.titleColor` - Colored accent for "DALL-E 3" text
-- `.description` - Prompt input area styling
-- `.grid` - Results grid layout
-- `.card` - Individual image card
-- `.imgPreview` - Preview image styling with click-to-download
-- `.error` - Error message display
+The application now uses **Ant Design** for all UI components and styling:
+- Components: `Button`, `Input`, `Select`, `Card`, `Image`, `Modal`, `Alert`, `Spin`, etc.
+- Layout: `Row`, `Col`, `Space` for responsive grid layouts
+- Theme: Custom theme configured in `pages/_app.tsx` with ConfigProvider
+- Primary color: `#5f9ea0` (cadetblue)
+- Typography: `Typography.Title`, `Typography.Text` components
+- Icons: `@ant-design/icons` package
 
-## Usage
+## Theme Configuration
 
-CSS Modules are imported in React components:
-```javascript
-import styles from "../styles/Home.module.css";
-// Used as: className={styles.container}
+The Ant Design theme is configured in `pages/_app.tsx`:
+
+```typescript
+import { ConfigProvider, theme as antTheme } from 'antd';
+
+const customTheme = {
+  algorithm: antTheme.defaultAlgorithm,
+  token: {
+    colorPrimary: '#5f9ea0', // cadetblue
+    borderRadius: 6,
+  },
+};
 ```
 
-Global styles are imported once in `_app.js`:
-```javascript
-import '../styles/globals.css'
-```
+For styling changes, modify the Ant Design theme tokens or use Ant Design's built-in style props (e.g., `style` prop on components).
