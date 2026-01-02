@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import openai from '../lib/openai-client';
-import { validateModelForBaseURL, validateStyleForModel } from '../lib/validation';
+import { validateModelForBaseURL, validateStyleForModel, validateGPTImage15Params, getPromptLimitForModel } from '../lib/validation';
 import type {
   ImagesApiResponse,
   ImageQuality,
@@ -13,17 +13,26 @@ const router = Router();
 /**
  * POST /api/images - Handles DALL-E image generation
  *
- * Since the frontend now handles parallel execution with n=1 requests,
- * this endpoint always generates a single image per request.
+ * Supports DALL-E 3 and GPT Image 1.5 models.
+ * Each request generates images based on the model's capabilities.
  */
 router.post('/', async (req: Request, res: Response<ImagesApiResponse | { error: string; details?: string[] }>) => {
-  const { p: prompt, n, s: size, q: quality, st: style, m: model } = req.query;
+  const {
+    p: prompt,
+    n,
+    s: size,
+    q: quality,
+    st: style,
+    m: model,
+    of: output_format,
+    bg: background
+  } = req.query;
 
   // Validate required parameters
-  if (!prompt || !n || !size || !quality) {
+  if (!prompt || !n || !size) {
     return res.status(400).json({
       error: 'Missing required parameters',
-      details: ['prompt (p), number (n), size (s), and quality (q) are required']
+      details: ['prompt (p), number (n), and size (s) are required']
     });
   }
 
@@ -37,12 +46,21 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | { error:
     return res.status(400).json({ error: modelValidation.error ?? 'Invalid model' });
   }
 
-  // Validate style for dall-e-3
+  // Validate prompt length for model
+  const promptLimit = getPromptLimitForModel(selectedModel as string);
+  if ((prompt as string).length > promptLimit) {
+    return res.status(400).json({
+      error: 'Prompt too long',
+      details: [`Prompt exceeds ${promptLimit} character limit for ${selectedModel}`]
+    });
+  }
+
+  // Validate style for DALL-E 3 only
   if (selectedModel === 'dall-e-3') {
     if (!style) {
       return res.status(400).json({
         error: 'Missing required parameter',
-        details: ['style (st) is required for dall-e-3']
+        details: ['style (st) is required for DALL-E 3']
       });
     }
     const styleValidation = validateStyleForModel(style as string, selectedModel as string);
@@ -51,29 +69,52 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | { error:
     }
   }
 
+  // Validate GPT Image 1.5 specific parameters
+  if (selectedModel === 'gpt-image-1.5') {
+    const gptImageValidation = validateGPTImage15Params({
+      quality: quality as string,
+      output_format: output_format as string,
+      background: background as string,
+      n: n as unknown as number,
+      size: size as string,
+    });
+    if (!gptImageValidation.valid) {
+      return res.status(400).json({
+        error: 'Invalid GPT Image 1.5 parameters',
+        details: gptImageValidation.errors
+      });
+    }
+  }
+
   try {
-    const requestParams: {
-      prompt: string;
-      n: number;
-      size: ImageSize;
-      model: string;
-      quality?: ImageQuality;
-      style?: ImageStyle;
-    } = {
+    // Build request parameters based on model
+    // Note: We use 'as any' for dynamic parameters since they differ by model
+    // and we're already validating them at runtime
+    const requestParams: any = {
       prompt: prompt as string,
-      n: 1, // Frontend handles parallel execution with n=1
+      n: Number(n),
       size: size as ImageSize,
       model: selectedModel as string,
     };
 
-    // Only add quality for non-DALL-E 2 models
-    if (selectedModel !== 'dall-e-2') {
-      requestParams.quality = quality as ImageQuality;
+    // Add quality parameter (both DALL-E 3 and GPT Image 1.5 support it)
+    if (quality) {
+      requestParams.quality = quality;
     }
 
-    // Add style for DALL-E 3
-    if (selectedModel === 'dall-e-3') {
+    // Add style for DALL-E 3 only
+    if (selectedModel === 'dall-e-3' && style) {
       requestParams.style = style as ImageStyle;
+    }
+
+    // Add output_format for GPT Image 1.5
+    if (selectedModel === 'gpt-image-1.5' && output_format) {
+      requestParams.output_format = output_format;
+    }
+
+    // Add background for GPT Image 1.5
+    if (selectedModel === 'gpt-image-1.5' && background) {
+      requestParams.background = background;
     }
 
     const response = await openai.images.generate(requestParams);

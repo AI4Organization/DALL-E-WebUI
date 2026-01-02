@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Purpose
 
-This directory contains the Express.js backend server that handles API requests for the DALL-E 3 Web UI. It provides RESTful endpoints for image generation, configuration, and image format conversion.
+This directory contains the Express.js backend server that handles API requests for the DALL-E 3 Web UI. It provides RESTful endpoints for image generation using OpenAI's DALL-E 3 and GPT Image 1.5 APIs, configuration, and image format conversion.
 
 ## Architecture
 

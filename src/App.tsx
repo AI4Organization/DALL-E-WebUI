@@ -43,8 +43,11 @@ import type {
   DownloadFormat,
   ImageGenerationItem,
   ImageGenerationStatus,
+  GPTImageQuality,
+  GPTImageOutputFormat,
+  GPTImageBackground,
 } from '../types';
-import { DALL_E_2_SIZES, DALL_E_3_SIZES } from '../types';
+import { DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../types';
 
 const { TextArea } = Input;
 
@@ -52,25 +55,33 @@ const { TextArea } = Input;
 declare const process: { env: { API_BASE_URL: string } };
 
 // ============ Constants ============
-const QUALITY_OPTIONS: { value: ImageQuality; label: string }[] = [
+const DALL_E_3_QUALITY_OPTIONS: { value: ImageQuality; label: string }[] = [
   { value: 'standard', label: 'Standard' },
   { value: 'hd', label: 'HD' },
 ];
 
-const getQualityOptions = (modelName: string | null): { value: ImageQuality; label: string }[] => {
-  if (modelName === 'dall-e-2') {
-    return [{ value: 'standard', label: 'Standard' }];
+const GPT_IMAGE_1_5_QUALITY_OPTIONS: { value: GPTImageQuality; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+];
+
+const getQualityOptions = (modelName: string | null): { value: ImageQuality | GPTImageQuality; label: string }[] => {
+  if (modelName === 'gpt-image-1.5') {
+    return GPT_IMAGE_1_5_QUALITY_OPTIONS;
   }
-  return QUALITY_OPTIONS;
+  return DALL_E_3_QUALITY_OPTIONS;
 };
 
 const getSizeOptions = (modelName: string | null): { value: ImageSize; label: string }[] => {
-  if (modelName === 'dall-e-2') {
-    return DALL_E_2_SIZES.map((size) => ({
+  if (modelName === 'gpt-image-1.5') {
+    return GPT_IMAGE_1_5_SIZES.map((size) => ({
       value: size,
-      label: size === '256x256' ? '256 x 256' :
-             size === '512x512' ? '512 x 512' :
-             size === '1024x1024' ? '1024 x 1024' :
+      label: size === 'auto' ? 'Auto' :
+             size === '1024x1024' ? '1024 x 1024 (Square)' :
+             size === '1536x1024' ? '1536 x 1024 (Landscape)' :
+             size === '1024x1536' ? '1024 x 1536 (Portrait)' :
              size.replace('x', ' x '),
     }));
   }
@@ -84,17 +95,31 @@ const getSizeOptions = (modelName: string | null): { value: ImageSize; label: st
 };
 
 const isSizeValidForModel = (size: ImageSize, modelName: string | null): boolean => {
-  if (modelName === 'dall-e-2') {
-    return DALL_E_2_SIZES.includes(size);
+  if (modelName === 'gpt-image-1.5') {
+    return GPT_IMAGE_1_5_SIZES.includes(size);
   }
   return DALL_E_3_SIZES.includes(size);
 };
 
 const getDefaultSizeForModel = (modelName: string | null): ImageSize => {
-  if (modelName === 'dall-e-2') {
-    return '1024x1024';
+  if (modelName === 'gpt-image-1.5') {
+    return 'auto'; // Default for GPT Image 1.5
   }
   return '1024x1024'; // Default for DALL-E 3
+};
+
+// Helper function to get prompt limit for model
+const getPromptLimit = (modelName: string | null): number => {
+  if (modelName === 'gpt-image-1.5') return 32000;
+  if (modelName === 'dall-e-3') return 4000;
+  return 4000; // Default
+};
+
+// Helper function to get max images for model
+const getMaxImages = (modelName: string | null): number => {
+  if (modelName === 'gpt-image-1.5') return 10;
+  if (modelName === 'dall-e-3') return 1;
+  return 1; // Default conservative
 };
 
 const STYLE_OPTIONS: { value: ImageStyle; label: string }[] = [
@@ -108,6 +133,20 @@ const FORMAT_OPTIONS: { value: DownloadFormat; label: string }[] = [
   { value: 'jpg', label: 'JPG' },
   { value: 'gif', label: 'GIF' },
   { value: 'avif', label: 'AVIF' },
+];
+
+// GPT Image 1.5 specific output format options (for API request)
+const GPT_IMAGE_1_5_OUTPUT_FORMAT_OPTIONS: { value: GPTImageOutputFormat; label: string }[] = [
+  { value: 'png', label: 'PNG' },
+  { value: 'jpeg', label: 'JPEG' },
+  { value: 'webp', label: 'WebP' },
+];
+
+// GPT Image 1.5 background options
+const GPT_IMAGE_1_5_BACKGROUND_OPTIONS: { value: GPTImageBackground; label: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'transparent', label: 'Transparent' },
+  { value: 'opaque', label: 'Opaque' },
 ];
 
 // ============ Animation Variants ============
@@ -141,6 +180,23 @@ const blobVariants = {
       ease: 'easeInOut' as const,
     },
   },
+};
+
+// ============ Helper Functions ============
+// Get displayable URL from OpenAI image result (handles both url and b64_json formats)
+const getImageDisplayUrl = (result: OpenAIImageResult): string | undefined => {
+  if (result.url) return result.url;
+  if (result.b64_json) {
+    // GPT Image 1.5 returns base64-encoded images
+    // Default to PNG for b64_json as it's the most common format
+    return `data:image/png;base64,${result.b64_json}`;
+  }
+  return undefined;
+};
+
+// Check if result has a downloadable image source
+const hasDownloadableImage = (result: OpenAIImageResult): boolean => {
+  return !!result.url || !!result.b64_json;
 };
 
 // ============ Floating Blob Component ============
@@ -205,10 +261,12 @@ export default function App(): React.ReactElement {
   const [configError, setConfigError] = useState<{ error: string; details?: string[] } | null>(null);
   const [configLoading, setConfigLoading] = useState<boolean>(true);
 
-  const [quality, setQuality] = useState<ImageQuality>('standard');
+  const [quality, setQuality] = useState<ImageQuality | GPTImageQuality>('hd');
   const [size, setSize] = useState<ImageSize>('1024x1024');
   const [style, setStyle] = useState<ImageStyle>('vivid');
   const [type, setType] = useState<DownloadFormat>('webp');
+  const [outputFormat, setOutputFormat] = useState<GPTImageOutputFormat>('png');
+  const [background, setBackground] = useState<GPTImageBackground>('auto');
 
   // Image preview state
   const [previewImage, setPreviewImage] = useState<{ url: string; index: number } | null>(null);
@@ -225,8 +283,8 @@ export default function App(): React.ReactElement {
   }, [model, size]);
 
   useEffect(() => {
-    if (model === 'dall-e-2') {
-      setQuality('standard');
+    if (model === 'gpt-image-1.5') {
+      setQuality('auto');
     } else if (model === 'dall-e-3') {
       setQuality('hd');
     }
@@ -305,34 +363,37 @@ export default function App(): React.ReactElement {
       ));
     }
 
-    // Character count validation (max 4000 characters)
+    // Character count validation (dynamic based on model)
     const charCount = prompt.length;
-    if (charCount > 4000) {
+    const promptLimit = getPromptLimit(model);
+    if (charCount > promptLimit) {
       issues.push(createValidationIssue(
         'error',
         'Prompt Too Long',
-        `Your prompt has ${charCount} characters, but the maximum is 4000 characters.`,
-        'Please shorten your prompt to 4000 characters or fewer.',
+        `Your prompt has ${charCount} characters, but the maximum is ${promptLimit} characters for ${model}.`,
+        `Please shorten your prompt to ${promptLimit} characters or fewer.`,
         'prompt'
       ));
     }
 
+    // Validate number of images based on model
+    const maxImages = getMaxImages(model);
     if (number < 1) {
       issues.push(createValidationIssue(
         'error',
         'Invalid Number',
         'Number of images must be at least 1.',
-        'Set the number between 1 and 10.',
+        `Set the number between 1 and ${maxImages}.`,
         'number'
       ));
     }
 
-    if (number > 10) {
+    if (number > maxImages) {
       issues.push(createValidationIssue(
         'error',
         'Too Many Images',
-        'You can generate up to 10 images at once.',
-        'Reduce the number of images to 10 or less.',
+        `${model} supports a maximum of ${maxImages} image${maxImages !== 1 ? 's' : ''} per request.`,
+        `Reduce the number of images to ${maxImages} or less.`,
         'number'
       ));
     }
@@ -348,32 +409,33 @@ export default function App(): React.ReactElement {
       ));
     }
 
-    if (model === 'dall-e-2' && quality === 'hd') {
+    if (model === 'gpt-image-1.5' && number > 1) {
       issues.push(createValidationIssue(
-        'warning',
-        'HD Quality Not Available',
-        'DALL-E 2 does not support HD quality. It will use standard quality instead.',
-        'Switch to DALL-E 3 for HD quality images, or keep standard quality for faster generation.',
-        'quality'
+        'info',
+        'Multiple Images with GPT Image 1.5',
+        `You requested ${number} images. We'll generate them in a single request and show all results together.`,
+        'GPT Image 1.5 supports multiple images in one request for faster generation.',
+        'number'
       ));
     }
 
-    if (model === 'dall-e-2' && !DALL_E_2_SIZES.includes(size)) {
-      issues.push(createValidationIssue(
-        'error',
-        'Invalid Size for DALL-E 2',
-        `The size "${size}" is not supported by DALL-E 2.`,
-        'Choose a supported size: 256x256, 512x512, or 1024x1024.',
-        'size'
-      ));
-    }
-
+    // Size validation based on model
     if (model === 'dall-e-3' && !DALL_E_3_SIZES.includes(size)) {
       issues.push(createValidationIssue(
         'error',
         'Invalid Size for DALL-E 3',
         `The size "${size}" is not supported by DALL-E 3.`,
         'Choose a supported size: 1024x1024, 1792x1024, or 1024x1792.',
+        'size'
+      ));
+    }
+
+    if (model === 'gpt-image-1.5' && !GPT_IMAGE_1_5_SIZES.includes(size)) {
+      issues.push(createValidationIssue(
+        'error',
+        'Invalid Size for GPT Image 1.5',
+        `The size "${size}" is not supported by GPT Image 1.5.`,
+        'Choose a supported size: auto, 1024x1024, 1536x1024, or 1024x1536.',
         'size'
       ));
     }
@@ -432,6 +494,11 @@ export default function App(): React.ReactElement {
         queryParams.append('st', style);
       }
 
+      if (model === 'gpt-image-1.5') {
+        queryParams.append('of', outputFormat);
+        queryParams.append('bg', background);
+      }
+
       try {
         const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
         const result = res.data.result?.[0];
@@ -454,16 +521,18 @@ export default function App(): React.ReactElement {
     const limit = pLimit(4);
 
     try {
-      // For DALL-E 3 or when number > 1, use parallel execution
-      // For DALL-E 2 with n > 1, we can use a single request
-      if (model === 'dall-e-2' && number > 1) {
-        // DALL-E 2 supports n > 1 in a single request
+      // For GPT Image 1.5 with n > 1, we can use a single request
+      // For DALL-E 3, use parallel execution (one request per image)
+      if (model === 'gpt-image-1.5' && number > 1) {
+        // GPT Image 1.5 supports n > 1 in a single request
         const queryParams = new URLSearchParams({
           p: encodeURIComponent(prompt),
           n: String(number),
           q: quality,
           s: size,
-          m: 'dall-e-2',
+          m: 'gpt-image-1.5',
+          of: outputFormat,
+          bg: background,
         });
 
         const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
@@ -493,16 +562,30 @@ export default function App(): React.ReactElement {
       setLoading(false);
       setIsGenerationInProgress(false);
     }
-  }, [model, prompt, number, quality, size, style]);
+  }, [model, prompt, number, quality, size, style, outputFormat, background]);
 
   const download = useCallback(async (url: string): Promise<void> => {
     try {
-      const res = await axios.post(`${process.env.API_BASE_URL}/api/download`, { url, type });
-      const link = document.createElement('a');
-      link.href = res.data.result;
-      link.download = `${prompt}.${type}`;
-      link.click();
-      toast.success('Image downloaded successfully');
+      // Check if it's a base64 data URL (from GPT Image 1.5)
+      if (url.startsWith('data:')) {
+        // Handle base64 image download directly in browser
+        const link = document.createElement('a');
+        link.href = url;
+        // Extract file extension from mime type or default to PNG
+        const mimeMatch = url.match(/^data:image\/(\w+);base64,/);
+        const extension = mimeMatch ? (mimeMatch[1] === 'jpeg' ? 'jpg' : mimeMatch[1]) : 'png';
+        link.download = `${prompt}.${extension}`;
+        link.click();
+        toast.success('Image downloaded successfully');
+      } else {
+        // Handle regular URL (from DALL-E 3) - use backend for format conversion
+        const res = await axios.post(`${process.env.API_BASE_URL}/api/download`, { url, type });
+        const link = document.createElement('a');
+        link.href = res.data.result;
+        link.download = `${prompt}.${type}`;
+        link.click();
+        toast.success('Image downloaded successfully');
+      }
     } catch (err) {
       console.error('Download error:', err);
       toast.error('Failed to download image');
@@ -530,6 +613,11 @@ export default function App(): React.ReactElement {
       queryParams.append('st', style);
     }
 
+    if (model === 'gpt-image-1.5') {
+      queryParams.append('of', outputFormat);
+      queryParams.append('bg', background);
+    }
+
     try {
       const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
       const result = res.data.result?.[0];
@@ -554,7 +642,7 @@ export default function App(): React.ReactElement {
       );
       toast.error(`Image ${id + 1} retry failed: ${errorMessage}`);
     }
-  }, [prompt, quality, size, model, style]);
+  }, [prompt, quality, size, model, style, outputFormat, background]);
 
   const handleGenerate = (): void => {
     void getImages();
@@ -640,9 +728,8 @@ export default function App(): React.ReactElement {
         onFix={(field) => {
           if (field === 'number' && number > 10) setNumber(Math.min(number, 10));
           if (field === 'number' && number < 1) setNumber(1);
-          if (field === 'quality' && model === 'dall-e-2') setQuality('standard');
-          if (field === 'size' && model === 'dall-e-2') setSize('1024x1024');
           if (field === 'size' && model === 'dall-e-3') setSize('1024x1024');
+          if (field === 'size' && model === 'gpt-image-1.5') setSize('auto');
         }}
       />
 
@@ -703,12 +790,6 @@ export default function App(): React.ReactElement {
         >
           {/* Hero Section */}
           <motion.div variants={itemVariants} className="text-center mb-12">
-            <div className="inline-flex items-center gap-3 mb-6 px-4 py-2 rounded-full bg-glass-light backdrop-blur-md border border-glass-border">
-              <StarOutlined className="text-accent-cyan" />
-              <span className="text-sm text-gray-300">Powered by DALL-E 3</span>
-              <StarOutlined className="text-accent-pink" />
-            </div>
-
             <h1 className="text-5xl md:text-7xl font-extrabold mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
               <span className="text-white">Create </span>
               <span className="gradient-text">Breathtaking</span>
@@ -755,13 +836,13 @@ export default function App(): React.ReactElement {
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder="A futuristic city at sunset, with flying cars and neon lights reflecting off glass buildings..."
                     autoSize={false}
-                    maxLength={4000}
+                    maxLength={getPromptLimit(model)}
                     style={{ height: textAreaHeight, overflowY: 'auto' }}
                     className="glass-input !text-base resize-none"
                   />
                   {/* Custom character count display */}
                   <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-gray-500">
-                    <span>{prompt.length} / 4000 characters</span>
+                    <span>{prompt.length} / {getPromptLimit(model)} characters</span>
                     <StarOutlined className="text-accent-cyan ml-2" />
                   </div>
                 </motion.div>
@@ -800,27 +881,27 @@ export default function App(): React.ReactElement {
                   )}
                   </Col>
 
-                  {/* Quality */}
-                  {model !== 'dall-e-2' && (
+                  {/* Quality (DALL-E 3 and GPT Image 1.5) */}
+                  {(model === 'dall-e-3' || model === 'gpt-image-1.5') && (
                     <Col xs={24} sm={12} md={6}>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
                         Quality
                       </label>
                       <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
-                        <Select<ImageQuality>
+                        <Select
                           value={quality}
                           onChange={setQuality}
                           options={getQualityOptions(model)}
                           disabled={isGenerationInProgress}
                           className="w-full"
                           popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                                                />
-                        </Tooltip>
+                        />
+                      </Tooltip>
                     </Col>
                   )}
 
                   {/* Size */}
-                  <Col xs={24} sm={12} md={model !== 'dall-e-2' ? 6 : 8}>
+                  <Col xs={24} sm={12} md={6}>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Size
                     </label>
@@ -832,14 +913,14 @@ export default function App(): React.ReactElement {
                         disabled={isGenerationInProgress}
                         className="w-full"
                         popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                                            />
-                      </Tooltip>
+                      />
+                    </Tooltip>
                   </Col>
 
-                  {/* Format */}
-                  <Col xs={24} sm={12} md={model !== 'dall-e-2' ? 6 : 8}>
+                  {/* Format (Download format) */}
+                  <Col xs={24} sm={12} md={6}>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Format
+                      Download Format
                     </label>
                     <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
                       <Select<DownloadFormat>
@@ -849,12 +930,12 @@ export default function App(): React.ReactElement {
                         disabled={isGenerationInProgress}
                         className="w-full"
                         popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                                            />
-                      </Tooltip>
+                      />
+                    </Tooltip>
                   </Col>
 
                   {/* Number of Images */}
-                  <Col xs={24} sm={12} md={model !== 'dall-e-2' ? 6 : 8}>
+                  <Col xs={24} sm={12} md={model === 'gpt-image-1.5' ? 6 : 12}>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Number of Images
                     </label>
@@ -863,7 +944,7 @@ export default function App(): React.ReactElement {
                         value={number}
                         onChange={(val) => setNumber(val ?? 1)}
                         min={1}
-                        max={10}
+                        max={getMaxImages(model)}
                         disabled={isGenerationInProgress}
                         className="w-full"
                       />
@@ -893,8 +974,52 @@ export default function App(): React.ReactElement {
                           disabled={isGenerationInProgress}
                           className="w-full"
                           popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                                                />
+                        />
+                      </Tooltip>
+                    </Col>
+                  )}
+
+                  {/* Output Format (GPT Image 1.5 only) */}
+                  {model === 'gpt-image-1.5' && (
+                    <Col xs={24} sm={12} md={6}>
+                      <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                        Output Format
+                        <Tooltip title="Format of the generated image returned by the API">
+                          <InfoCircleOutlined className="text-accent-cyan cursor-help" />
                         </Tooltip>
+                      </label>
+                      <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
+                        <Select<GPTImageOutputFormat>
+                          value={outputFormat}
+                          onChange={setOutputFormat}
+                          options={GPT_IMAGE_1_5_OUTPUT_FORMAT_OPTIONS}
+                          disabled={isGenerationInProgress}
+                          className="w-full"
+                          popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                        />
+                      </Tooltip>
+                    </Col>
+                  )}
+
+                  {/* Background (GPT Image 1.5 only) */}
+                  {model === 'gpt-image-1.5' && (
+                    <Col xs={24} sm={12} md={6}>
+                      <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                        Background
+                        <Tooltip title="Control the transparency of the generated image background">
+                          <InfoCircleOutlined className="text-accent-cyan cursor-help" />
+                        </Tooltip>
+                      </label>
+                      <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
+                        <Select<GPTImageBackground>
+                          value={background}
+                          onChange={setBackground}
+                          options={GPT_IMAGE_1_5_BACKGROUND_OPTIONS}
+                          disabled={isGenerationInProgress}
+                          className="w-full"
+                          popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                        />
+                      </Tooltip>
                     </Col>
                   )}
                 </Row>
@@ -1098,19 +1223,21 @@ export default function App(): React.ReactElement {
                         )}
 
                         {/* Success Card */}
-                        {item.status === 'success' && item.result && (
-                          <Card
-                            hoverable
-                            className="glass-card overflow-hidden !border-0"
-                            cover={
-                              item.result.url ? (
+                        {item.status === 'success' && item.result && (() => {
+                          const imageUrl = getImageDisplayUrl(item.result);
+                          const canDownload = hasDownloadableImage(item.result);
+                          return imageUrl ? (
+                            <Card
+                              hoverable
+                              className="glass-card overflow-hidden !border-0"
+                              cover={
                                 <div
                                   className="relative overflow-hidden cursor-pointer"
                                   style={{ backgroundColor: 'var(--color-card-bg)' }}
-                                  onClick={() => openPreview(item.result.url!, item.id)}
+                                  onClick={() => openPreview(imageUrl, item.id)}
                                 >
                                   <img
-                                    src={item.result.url}
+                                    src={imageUrl}
                                     alt={`Generated image ${item.id + 1}`}
                                     className="!w-full transition-transform duration-300 hover:scale-105"
                                     style={{ height: 280, objectFit: 'cover' }}
@@ -1124,21 +1251,20 @@ export default function App(): React.ReactElement {
                                     <span className="text-white text-xs font-medium">Ready</span>
                                   </div>
                                 </div>
-                              ) : null
-                            }
-                            actions={[
-                              <Button
-                                key="download"
-                                type="primary"
-                                icon={<DownloadOutlined />}
-                                disabled={!item.result.url}
-                                onClick={() => item.result.url ? void download(item.result.url) : undefined}
-                                className="!bg-accent-purple !border-accent-purple hover:!bg-accent-purple/80"
-                              >
-                                Download
-                              </Button>,
-                            ]}
-                          >
+                              }
+                              actions={[
+                                <Button
+                                  key="download"
+                                  type="primary"
+                                  icon={<DownloadOutlined />}
+                                  disabled={!canDownload}
+                                  onClick={() => canDownload ? void download(imageUrl) : undefined}
+                                  className="!bg-accent-purple !border-accent-purple hover:!bg-accent-purple/80"
+                                >
+                                  Download
+                                </Button>,
+                              ]}
+                            >
                             <div className="text-white">
                               <h4 className="font-semibold text-lg mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
                                 Image #{item.id + 1}
@@ -1148,7 +1274,8 @@ export default function App(): React.ReactElement {
                               </p>
                             </div>
                           </Card>
-                        )}
+                          ) : null;
+                        })()}
                       </motion.div>
                     </Col>
                   ))}
@@ -1183,7 +1310,7 @@ export default function App(): React.ReactElement {
           transition={{ delay: 1 }}
           className="text-center py-8 text-gray-600 text-sm"
         >
-          <p>GenAI Studio • Powered by OpenAI DALL-E 3</p>
+          <p>Powered by AI4Organization</p>
         </motion.footer>
       </div>
 

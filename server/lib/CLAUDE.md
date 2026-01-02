@@ -49,7 +49,7 @@ function getServerConfig(): ServerConfig
 
 | Base URL | Provider | Models |
 |----------|----------|--------|
-| `api.openai.com` | OpenAI | DALL-E 2, DALL-E 3 |
+| `api.openai.com` | OpenAI | DALL-E 3, GPT Image 1.5 |
 | `openrouter.ai` | OpenRouter | Various provider models |
 | Other | Custom | Custom models |
 
@@ -61,8 +61,8 @@ function getModelOptions(baseURL: string): ModelOption[]
 ```
 
 **OpenAI Models:**
-- DALL-E 2 (`dall-e-2`)
 - DALL-E 3 (`dall-e-3`)
+- GPT Image 1.5 (`gpt-image-1.5`)
 
 **OpenRouter Models:**
 - Various provider-specific DALL-E models
@@ -80,9 +80,11 @@ function getModelOptions(baseURL: string): ModelOption[]
 interface RequestBody {
   prompt?: string;
   model?: string;
-  quality?: ImageQuality;
+  quality?: ImageQuality | GPTImageQuality;
   size?: ImageSize;
   style?: ImageStyle;
+  output_format?: GPTImageOutputFormat;
+  background?: GPTImageBackground;
   n?: number;
 }
 ```
@@ -100,12 +102,14 @@ function validateRequestBody(body: RequestBody): ValidationResult
 
 | Field | Required | Validation |
 |-------|----------|------------|
-| `prompt` | Yes | Non-empty string, 1-4000 characters |
+| `prompt` | Yes | Non-empty string, 1-4000 chars (DALL-E 3) or 1-32000 chars (GPT Image 1.5) |
 | `model` | Yes | Valid model identifier |
-| `quality` | No | 'standard' or 'hd' |
+| `quality` | No | DALL-E 3: 'standard' or 'hd'; GPT Image 1.5: 'auto', 'high', 'medium', 'low' |
 | `size` | No | Valid size for model |
-| `style` | No | 'vivid' or 'natural' |
-| `n` | No | Positive integer |
+| `style` | No | 'vivid' or 'natural' (DALL-E 3 only) |
+| `output_format` | No | 'png', 'jpeg', 'webp' (GPT Image 1.5 only) |
+| `background` | No | 'auto', 'transparent', 'opaque' (GPT Image 1.5 only) |
+| `n` | No | Positive integer, max 1 for DALL-E 3, max 10 for GPT Image 1.5 |
 
 **Returns:**
 ```typescript
@@ -116,12 +120,16 @@ function validateRequestBody(body: RequestBody): ValidationResult
 ```
 
 **Error Messages:**
-- `"Prompt is required and must be between 1 and 4000 characters."`
+- `"Prompt is required and must be between 1 and 4000 characters."` (DALL-E 3)
+- `"Prompt is required and must be between 1 and 32000 characters."` (GPT Image 1.5)
 - `"Model is required."`
-- `"Invalid quality value. Must be 'standard' or 'hd'."`
+- `"Invalid quality value. Must be 'standard' or 'hd'."` (DALL-E 3)
+- `"Invalid quality value. Must be 'auto', 'high', 'medium', or 'low'."` (GPT Image 1.5)
 - `"Invalid size value."`
 - `"Invalid style value. Must be 'vivid' or 'natural'."`
-- `"Number of images must be a positive integer."`
+- `"Invalid output_format value. Must be 'png', 'jpeg', or 'webp'."` (GPT Image 1.5)
+- `"Invalid background value. Must be 'auto', 'transparent', or 'opaque'."` (GPT Image 1.5)
+- `"Number of images must be a positive integer (max 1 for DALL-E 3, max 10 for GPT Image 1.5)."`
 
 ##### `validateModelCompatibility(params: RequestBody)`
 Validates that parameters are compatible with the selected model.
@@ -132,14 +140,21 @@ function validateModelCompatibility(params: RequestBody): ValidationResult
 
 **Compatibility Rules:**
 
-| Model | Size Support | Quality | Style |
-|-------|-------------|---------|-------|
-| DALL-E 2 | 256x256, 512x512, 1024x1024 | No | No |
-| DALL-E 3 | 1024x1024, 1024x1792, 1792x1024 | Yes | Yes |
+| Model | Size Support | Quality | Style | Output Format | Background | Max Images |
+|-------|-------------|---------|-------|---------------|------------|------------|
+| DALL-E 3 | 1024x1024, 1024x1792, 1792x1024 | standard/hd | vivid/natural | No | No | 1 |
+| GPT Image 1.5 | auto, 1024x1024, 1536x1024, 1024x1536 | auto/high/medium/low | No | png/jpeg/webp | auto/transparent/opaque | 10 |
 
 **DALL-E 3 Constraints:**
 - Only supports `n=1` (single image)
 - Size validation: 1024x1024 (square), 1024x1792 (portrait), 1792x1024 (landscape)
+- Prompt limit: 4000 characters
+
+**GPT Image 1.5 Constraints:**
+- Supports `n=1` to `n=10` (multiple images)
+- Size validation: auto, 1024x1024 (square), 1536x1024 (landscape), 1024x1536 (portrait)
+- Prompt limit: 32000 characters
+- Always returns base64-encoded images (b64_json)
 
 ##### `isValidImageSize(size: string, model: string)`
 Checks if a size is valid for a model.

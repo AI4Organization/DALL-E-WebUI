@@ -134,14 +134,23 @@ DALL-E 3 Web UI is a decoupled web application that provides a modern, user-frie
 
 ### Image Generation
 - **Primary Model**: DALL-E 3 (default)
-- **Alternative Models**: DALL-E 2, OpenRouter-compatible models
+- **Alternative Models**: GPT Image 1.5, OpenRouter-compatible models
 - **DALL-E 3 Constraints**:
   - Only supports `n=1` (single image per request)
   - Default size: 1024x1024 (square)
   - Prompt limit: 4000 characters (enforced at UI level)
-- **Quality Options**: standard, hd
-- **Size Options**: 256x256, 512x512, 1024x1024, 1792x1024, 1024x1792
-- **Style Options**: vivid (hyper-realistic), natural (more subtle)
+  - Quality options: standard, hd
+  - Style options: vivid (hyper-realistic), natural (more subtle)
+  - Size options: 1024x1024, 1024x1792, 1792x1024
+- **GPT Image 1.5 Capabilities**:
+  - Supports `n=1` to `n=10` (multiple images per request)
+  - Default size: auto
+  - Prompt limit: 32000 characters (enforced at UI level)
+  - Quality options: auto, high, medium, low
+  - Output format options: png, jpeg, webp
+  - Background options: auto, transparent, opaque
+  - Size options: auto, 1024x1024, 1536x1024, 1024x1536
+  - Always returns base64-encoded images (b64_json)
 
 ### Image Formats
 - **Generation**: Returns URL or base64 JSON from OpenAI
@@ -169,8 +178,8 @@ DALL-E 3 Web UI is a decoupled web application that provides a modern, user-frie
 - **Node.js Version**: Requires >= 24.0.0
 - **TypeScript Strict Mode**: Cannot be disabled; all code must type-check
 - **API Key Required**: `OPENAI_API_KEY` must be set in `.env`
-- **Prompt Length**: Hard limit of 4000 characters (DALL-E 3 API constraint)
-- **DALL-E 3 Single Image**: Cannot generate multiple images per request
+- **Prompt Length**: Model-specific limits (4000 for DALL-E 3, 32000 for GPT Image 1.5)
+- **Image Count**: Model-specific limits (1 for DALL-E 3, 10 for GPT Image 1.5)
 
 ### API Constraints
 - **OpenAI Rate Limits**: Subject to OpenAI API rate limiting

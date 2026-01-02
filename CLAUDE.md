@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DALL-E 3 Web UI is a **decoupled frontend/backend application** that provides a web interface for generating images using OpenAI's DALL-E 3 API. It allows users to input prompts, configure generation parameters (quality, size, style), and download generated images in various formats.
+DALL-E 3 Web UI is a **decoupled frontend/backend application** that provides a web interface for generating images using OpenAI's DALL-E 3 and GPT Image 1.5 APIs. It allows users to input prompts, configure generation parameters (quality, size, style, output format, background), and download generated images in various formats.
 
 **Architecture**:
 - **Frontend**: Rsbuild (Rspack-based) SPA with React 19
@@ -161,7 +161,7 @@ The app features a comprehensive dark/light theme system with:
 | `ConfigProvider` | Global theme configuration with dynamic theming |
 | `Input.TextArea` | Prompt input with character count |
 | `InputNumber` | Number of images selector |
-| `Select` | Model, quality, size, style, format dropdowns |
+| `Select` | Model, quality, size, style, output format, background dropdowns |
 | `Button` | Generate and download buttons |
 | `Card` | Image result cards with actions |
 | `Image` | Image display with preview modal |
@@ -196,10 +196,24 @@ interface OpenAIImageResult {
   b64_json?: string;
 }
 
-// Image generation
+// Image generation - DALL-E 3
 type ImageQuality = 'standard' | 'hd';
-type ImageSize = '256x256' | '512x512' | '1024x1024' | '1792x1024' | '1024x1792';
 type ImageStyle = 'vivid' | 'natural';
+
+// Image generation - GPT Image 1.5
+type GPTImageQuality = 'auto' | 'high' | 'medium' | 'low';
+type GPTImageOutputFormat = 'png' | 'jpeg' | 'webp';
+type GPTImageBackground = 'auto' | 'transparent' | 'opaque';
+
+// Shared sizes (DALL-E 3 and GPT Image 1.5)
+type ImageSize =
+  | '1024x1024'    // Common square size
+  | '1024x1792'    // DALL-E 3 portrait
+  | '1792x1024'    // DALL-E 3 landscape
+  | 'auto'         // GPT Image 1.5 auto size
+  | '1536x1024'    // GPT Image 1.5 landscape
+  | '1024x1536';   // GPT Image 1.5 portrait
+
 type DownloadFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif';
 
 // API responses
@@ -210,18 +224,37 @@ interface ConfigApiResponse { availableModels: ModelOption[]; baseURL: string; }
 
 ## Notes
 
-- DALL-E 3 only supports `n=1` (single image) regardless of the input number
-- **Prompt character limit is 4000 characters** (enforced at the UI level via maxLength attribute)
+### Model-Specific Capabilities
+
+**DALL-E 3:**
+- Only supports `n=1` (single image) regardless of the input number
+- Prompt character limit: **4000 characters**
+- Quality options: standard, hd
+- Style options: vivid (hyper-realistic), natural (more subtle)
+- Sizes: 1024x1024 (square), 1024x1792 (portrait), 1792x1024 (landscape)
+- Default size: "1024x1024" (Square)
+
+**GPT Image 1.5:**
+- Supports `n=1` to `n=10` (multiple images per request)
+- Prompt character limit: **32000 characters**
+- Quality options: auto, high, medium, low
+- Output format options: png, jpeg, webp
+- Background options: auto, transparent, opaque
+- Sizes: auto, 1024x1024 (square), 1536x1024 (landscape), 1024x1536 (portrait)
+- Always returns base64-encoded images (b64_json)
+
+### General Notes
 - TypeScript strict mode catches potential null/undefined issues at compile time
 - The app supports multiple base URLs (OpenAI API and OpenRouter)
 - Configuration errors are displayed in a modal dialog to the user
 - Default model: DALL-E 3
-- Default size for DALL-E 3: "1024x1024" (Square)
 - Style dropdown shows an info icon with tooltip explaining each style option
 - Image preview modal with zoom controls (scroll to zoom, drag to pan, +/- keys to zoom)
 - Dark/light theme toggle with animated sun/moon icons in the top-right corner
 - Theme preference is saved to localStorage and persists across sessions
 - System preference detection sets initial theme based on user's OS setting
+- Prompt character limit is dynamic based on selected model (enforced via maxLength attribute)
+- Image count limit is dynamic based on selected model (1 for DALL-E 3, 10 for GPT Image 1.5)
 
 ## Migration History
 

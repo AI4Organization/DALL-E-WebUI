@@ -45,17 +45,19 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 
 **Endpoint:** `POST /api/images`
 
-**Purpose:** Generates images using OpenAI's DALL-E API.
+**Purpose:** Generates images using OpenAI's DALL-E 3 and GPT Image 1.5 APIs.
 
-**Request Body:**
+**Request Query Parameters:**
 ```typescript
 {
-  prompt: string;          // Image description
-  model: string;           // Model identifier
-  quality?: 'standard' | 'hd';  // DALL-E 3 only
-  size?: string;           // Image dimensions
-  style?: 'vivid' | 'natural';  // DALL-E 3 only
-  n?: number;              // Number of images (DALL-E 3 always returns 1)
+  p: string;          // Prompt (URL-encoded)
+  n: number;          // Number of images (1 for DALL-E 3, 1-10 for GPT Image 1.5)
+  q: string;          // Quality: 'standard'|'hd' (DALL-E 3) or 'auto'|'high'|'medium'|'low' (GPT Image 1.5)
+  s: string;          // Size: Image dimensions (model-dependent)
+  m: string;          // Model: 'dall-e-3' or 'gpt-image-1.5'
+  st?: string;        // Style: 'vivid'|'natural' (DALL-E 3 only)
+  of?: string;        // Output format: 'png'|'jpeg'|'webp' (GPT Image 1.5 only)
+  bg?: string;        // Background: 'auto'|'transparent'|'opaque' (GPT Image 1.5 only)
 }
 ```
 
@@ -69,23 +71,37 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 **OpenAIImageResult:**
 ```typescript
 {
-  url?: string;            // Image URL
+  url?: string;            // Image URL (DALL-E 3)
   revised_prompt?: string; // DALL-E 3 revised prompt
-  b64_json?: string;       // Base64 encoded image
+  b64_json?: string;       // Base64 encoded image (GPT Image 1.5)
 }
 ```
 
 **Key Features:**
 - Validates input parameters
-- Handles both DALL-E 2 and DALL-E 3
+- Handles both DALL-E 3 and GPT Image 1.5
 - Supports OpenRouter API
-- Returns image URLs or base64 data
+- Returns image URLs (DALL-E 3) or base64 data (GPT Image 1.5)
 - Error handling for API failures
+
+**Model-Specific Behavior:**
+
+| Feature | DALL-E 3 | GPT Image 1.5 |
+|---------|----------|---------------|
+| Max images | 1 | 10 |
+| Prompt limit | 4000 chars | 32000 chars |
+| Return format | `url` | `b64_json` (base64) |
+| Quality options | standard, hd | auto, high, medium, low |
+| Style options | vivid, natural | Not supported |
+| Size options | 1024x1024, 1024x1792, 1792x1024 | auto, 1024x1024, 1536x1024, 1024x1536 |
+| Output format | N/A | png, jpeg, webp |
+| Background | N/A | auto, transparent, opaque |
 
 **Validation Rules:**
 - DALL-E 3 only supports `n=1`
 - Size validation per model
 - Quality/Style only for DALL-E 3
+- Output format/Background only for GPT Image 1.5
 
 ---
 

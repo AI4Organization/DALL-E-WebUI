@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Purpose
 
-This directory contains the React 19 single-page application (SPA) built with Rsbuild. It provides the user interface for generating images using DALL-E 3 API.
+This directory contains the React 19 single-page application (SPA) built with Rsbuild. It provides the user interface for generating images using OpenAI's DALL-E 3 and GPT Image 1.5 APIs.
 
 ## Architecture
 
@@ -47,11 +47,13 @@ Primary UI component containing:
 
 **Key Features:**
 - Uses `API_BASE_URL` environment variable for API calls
-- Implements character count validation (4000 character limit)
+- Implements character count validation (dynamic based on model: 4000 for DALL-E 3, 32000 for GPT Image 1.5)
 - Shows real-time character counter in the prompt input
 - Shows loading states during generation
 - Displays images with zoom/preview modal
 - Handles error messages with Ant Design Alert
+- Supports both image URL format (DALL-E 3) and base64 format (GPT Image 1.5)
+- Downloads base64 images directly in browser, URLs via backend conversion
 
 ### Component Architecture
 

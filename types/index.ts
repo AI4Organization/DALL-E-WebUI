@@ -11,7 +11,17 @@ export interface OpenAIImageResult {
 }
 
 // ============ Image Generation Types ============
+// DALL-E 3 quality options
 export type ImageQuality = 'standard' | 'hd';
+
+// GPT Image 1.5 quality options
+export type GPTImageQuality = 'auto' | 'high' | 'medium' | 'low';
+
+// GPT Image 1.5 output format options
+export type GPTImageOutputFormat = 'png' | 'jpeg' | 'webp';
+
+// GPT Image 1.5 background options
+export type GPTImageBackground = 'auto' | 'transparent' | 'opaque';
 
 // Status of an individual image generation request
 export type ImageGenerationStatus = 'pending' | 'loading' | 'success' | 'error';
@@ -24,23 +34,25 @@ export interface ImageGenerationItem {
   error?: string;
 }
 
-// DALL-E 2 sizes: 256x256, 512x512, 1024x1024
 // DALL-E 3 sizes: 1024x1024, 1024x1792, 1792x1024
+// GPT Image 1.5 sizes: auto, 1024x1024, 1536x1024, 1024x1536
 export type ImageSize =
-  // DALL-E 2 sizes
-  | '256x256'
-  | '512x512'
+  // Common size
   | '1024x1024'
   // DALL-E 3 sizes
   | '1024x1792'
-  | '1792x1024';
+  | '1792x1024'
+  // GPT Image 1.5 specific sizes
+  | 'auto'
+  | '1536x1024'
+  | '1024x1536';
 
 export type ImageStyle = 'vivid' | 'natural';
 export type DownloadFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif';
 
 // Model-specific size options
-export const DALL_E_2_SIZES: readonly ImageSize[] = ['256x256', '512x512', '1024x1024'] as const;
 export const DALL_E_3_SIZES: readonly ImageSize[] = ['1024x1024', '1024x1792', '1792x1024'] as const;
+export const GPT_IMAGE_1_5_SIZES: readonly ImageSize[] = ['auto', '1024x1024', '1536x1024', '1024x1536'] as const;
 
 export interface ModelOption {
   value: string;
