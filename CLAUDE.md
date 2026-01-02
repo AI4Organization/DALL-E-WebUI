@@ -192,6 +192,7 @@ interface ConfigApiResponse { availableModels: ModelOption[]; baseURL: string; }
 ## Notes
 
 - DALL-E 3 only supports `n=1` (single image) regardless of the input number
+- **Prompt character limit is 4000 characters** (enforced at the UI level via maxLength attribute)
 - TypeScript strict mode catches potential null/undefined issues at compile time
 - The app supports multiple base URLs (OpenAI API and OpenRouter)
 - Configuration errors are displayed in a modal dialog to the user

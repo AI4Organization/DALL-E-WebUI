@@ -299,14 +299,14 @@ export default function App(): React.ReactElement {
       ));
     }
 
-    // Word count validation (max 4096 words)
-    const wordCount = prompt.trim().split(/\s+/).filter(w => w.length > 0).length;
-    if (wordCount > 4096) {
+    // Character count validation (max 4000 characters)
+    const charCount = prompt.length;
+    if (charCount > 4000) {
       issues.push(createValidationIssue(
         'error',
         'Prompt Too Long',
-        `Your prompt has ${wordCount} words, but the maximum is 4096 words.`,
-        'Please shorten your prompt to 4096 words or fewer.',
+        `Your prompt has ${charCount} characters, but the maximum is 4000 characters.`,
+        'Please shorten your prompt to 4000 characters or fewer.',
         'prompt'
       ));
     }
@@ -640,13 +640,13 @@ export default function App(): React.ReactElement {
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder="A futuristic city at sunset, with flying cars and neon lights reflecting off glass buildings..."
                     autoSize={false}
-                    maxLength={25000}
+                    maxLength={4000}
                     style={{ height: textAreaHeight, overflowY: 'auto' }}
                     className="glass-input !text-base resize-none"
                   />
-                  {/* Custom word count display */}
+                  {/* Custom character count display */}
                   <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-gray-500">
-                    <span>{prompt.trim() ? prompt.trim().split(/\s+/).length : 0} / 4096 words</span>
+                    <span>{prompt.length} / 4000 characters</span>
                     <StarOutlined className="text-accent-cyan ml-2" />
                   </div>
                 </motion.div>

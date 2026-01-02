@@ -38,7 +38,7 @@ React 19 entry point that:
 ### `App.tsx` - Main Application Component
 
 Primary UI component containing:
-- Prompt input with character counter
+- Prompt input with character counter (max 4000 characters)
 - Model selection (DALL-E 2, DALL-E 3, etc.)
 - Generation parameters (quality, size, style, format)
 - Generate and download buttons
@@ -47,7 +47,8 @@ Primary UI component containing:
 
 **Key Features:**
 - Uses `API_BASE_URL` environment variable for API calls
-- Implements debounced prompt validation
+- Implements character count validation (4000 character limit)
+- Shows real-time character counter in the prompt input
 - Shows loading states during generation
 - Displays images with zoom/preview modal
 - Handles error messages with Ant Design Alert
