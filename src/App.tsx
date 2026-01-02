@@ -11,7 +11,6 @@ import {
   Row,
   Col,
   Modal,
-  message,
   Tooltip,
 } from 'antd';
 import {
@@ -25,9 +24,13 @@ import {
   ZoomInOutlined,
   ZoomOutOutlined,
   ReloadOutlined,
+  CloseCircleOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
+import pLimit from 'p-limit';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { ThemeToggle } from './components/ThemeToggle';
 import { ValidationDialog, createValidationIssue, type ValidationIssue } from './components/ValidationDialog';
 import { useTheme } from './lib/theme';
@@ -38,6 +41,8 @@ import type {
   ImageSize,
   ImageStyle,
   DownloadFormat,
+  ImageGenerationItem,
+  ImageGenerationStatus,
 } from '../types';
 import { DALL_E_2_SIZES, DALL_E_3_SIZES } from '../types';
 
@@ -188,11 +193,12 @@ export default function App(): React.ReactElement {
   }, [prompt, autoResizeTextArea]);
 
   const [number, setNumber] = useState<number>(4);
-  const [results, setResults] = useState<OpenAIImageResult[]>([]);
+  const [generationItems, setGenerationItems] = useState<ImageGenerationItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<boolean>(false);
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
   const [showValidationDialog, setShowValidationDialog] = useState<boolean>(false);
+  const [isGenerationInProgress, setIsGenerationInProgress] = useState<boolean>(false);
 
   const [model, setModel] = useState<string | null>(null);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
@@ -336,8 +342,8 @@ export default function App(): React.ReactElement {
       issues.push(createValidationIssue(
         'info',
         'Multiple Images with DALL-E 3',
-        `You requested ${number} images. DALL-E 3 generates them one at a time, so this will take longer.`,
-        'Consider reducing to 1-2 images for faster generation, or be patient while we create all your images.',
+        `You requested ${number} images. We'll generate them in parallel and show each one as it completes.`,
+        'Images will appear progressively as they finish - no need to wait for all of them!',
         'number'
       ));
     }
@@ -387,11 +393,134 @@ export default function App(): React.ReactElement {
       setShowValidationDialog(true);
     }
 
+    // Clear previous results and set loading state
+    setGenerationItems([]);
+    setError(false);
     setLoading(true);
+    setIsGenerationInProgress(true);
+
+    // Initialize generation items for parallel execution
+    const initialItems: ImageGenerationItem[] = Array.from({ length: number }, (_, i) => ({
+      id: i,
+      status: 'pending' as ImageGenerationStatus,
+    }));
+    setGenerationItems(initialItems);
+
+    // Helper function to update a single generation item
+    const updateItem = (id: number, updates: Partial<ImageGenerationItem>): void => {
+      setGenerationItems((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, ...updates } : item
+        )
+      );
+    };
+
+    // Single image generation function
+    const generateSingleImage = async (id: number): Promise<void> => {
+      // Update status to loading
+      updateItem(id, { status: 'loading' });
+
+      const queryParams = new URLSearchParams({
+        p: encodeURIComponent(prompt),
+        n: '1',
+        q: quality,
+        s: size,
+        m: model ?? 'dall-e-3',
+      });
+
+      if (model === 'dall-e-3') {
+        queryParams.append('st', style);
+      }
+
+      try {
+        const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
+        const result = res.data.result?.[0];
+
+        if (result) {
+          updateItem(id, { status: 'success', result });
+          toast.success(`Image ${id + 1} of ${number} ready!`);
+        } else {
+          throw new Error('No image data returned');
+        }
+      } catch (err) {
+        console.error(`Image ${id + 1} generation error:`, err);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        updateItem(id, { status: 'error', error: errorMessage });
+        toast.error(`Image ${id + 1} failed: ${errorMessage}`);
+      }
+    };
+
+    // Concurrency limit: 4 parallel requests
+    const limit = pLimit(4);
+
+    try {
+      // For DALL-E 3 or when number > 1, use parallel execution
+      // For DALL-E 2 with n > 1, we can use a single request
+      if (model === 'dall-e-2' && number > 1) {
+        // DALL-E 2 supports n > 1 in a single request
+        const queryParams = new URLSearchParams({
+          p: encodeURIComponent(prompt),
+          n: String(number),
+          q: quality,
+          s: size,
+          m: 'dall-e-2',
+        });
+
+        const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
+        const results = res.data.result || [];
+
+        // Update all items with results
+        const updatedItems = results.map((result: OpenAIImageResult, i: number) => ({
+          id: i,
+          status: 'success' as ImageGenerationStatus,
+          result,
+        }));
+
+        setGenerationItems(updatedItems);
+        toast.success(`${results.length} image${results.length !== 1 ? 's' : ''} generated!`);
+      } else {
+        // DALL-E 3: Make parallel requests (one per image)
+        const tasks = Array.from({ length: number }, (_, i) =>
+          limit(() => generateSingleImage(i))
+        );
+
+        await Promise.all(tasks);
+      }
+    } catch (err) {
+      console.error('Batch generation error:', err);
+      setError(true);
+    } finally {
+      setLoading(false);
+      setIsGenerationInProgress(false);
+    }
+  }, [model, prompt, number, quality, size, style]);
+
+  const download = useCallback(async (url: string): Promise<void> => {
+    try {
+      const res = await axios.post(`${process.env.API_BASE_URL}/api/download`, { url, type });
+      const link = document.createElement('a');
+      link.href = res.data.result;
+      link.download = `${prompt}.${type}`;
+      link.click();
+      toast.success('Image downloaded successfully');
+    } catch (err) {
+      console.error('Download error:', err);
+      toast.error('Failed to download image');
+    }
+  }, [prompt, type]);
+
+  // Retry a single failed image generation
+  const retryImage = useCallback(async (id: number): Promise<void> => {
+    // Update status to loading
+    setGenerationItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, status: 'loading' as ImageGenerationStatus, error: undefined } : item
+      )
+    );
 
     const queryParams = new URLSearchParams({
       p: encodeURIComponent(prompt),
-      n: String(number),
+      n: '1',
       q: quality,
       s: size,
       m: model ?? 'dall-e-3',
@@ -403,43 +532,29 @@ export default function App(): React.ReactElement {
 
     try {
       const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
-      setResults(res.data.result);
-    } catch (err) {
-      console.error('API error:', err);
-      setError(true);
+      const result = res.data.result?.[0];
 
-      const axiosError = err as { response?: { data?: { error: string; details?: string[] } } };
-      if (axiosError.response?.data) {
-        setValidationIssues([
-          createValidationIssue(
-            'error',
-            'Generation Failed',
-            axiosError.response.data.error || 'Failed to generate images.',
-            axiosError.response.data.details?.join('\n') || 'Please try again with different settings.'
+      if (result) {
+        setGenerationItems((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, status: 'success' as ImageGenerationStatus, result } : item
           )
-        ]);
-        setShowValidationDialog(true);
+        );
+        toast.success(`Image ${id + 1} regenerated successfully!`);
       } else {
-        message.error('Failed to generate images. Please try again.');
+        throw new Error('No image data returned');
       }
-    } finally {
-      setLoading(false);
-    }
-  }, [model, prompt, number, quality, size, style]);
-
-  const download = useCallback(async (url: string): Promise<void> => {
-    try {
-      const res = await axios.post(`${process.env.API_BASE_URL}/api/download`, { url, type });
-      const link = document.createElement('a');
-      link.href = res.data.result;
-      link.download = `${prompt}.${type}`;
-      link.click();
-      message.success('Image downloaded successfully');
     } catch (err) {
-      console.error('Download error:', err);
-      message.error('Failed to download image');
+      console.error(`Image ${id + 1} retry error:`, err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setGenerationItems((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, status: 'error' as ImageGenerationStatus, error: errorMessage } : item
+        )
+      );
+      toast.error(`Image ${id + 1} retry failed: ${errorMessage}`);
     }
-  }, [prompt, type]);
+  }, [prompt, quality, size, model, style]);
 
   const handleGenerate = (): void => {
     void getImages();
@@ -665,14 +780,17 @@ export default function App(): React.ReactElement {
                       className="w-full"
                     />
                   ) : model ? (
-                    <Select
-                      value={model}
-                      onChange={setModel}
-                      options={availableModels}
-                      placeholder="Select a model"
-                      className="w-full"
-                      popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                    />
+                    <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
+                      <Select
+                        value={model}
+                        onChange={setModel}
+                        options={availableModels}
+                        placeholder="Select a model"
+                        disabled={isGenerationInProgress}
+                        className="w-full"
+                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                      />
+                    </Tooltip>
                   ) : (
                     <Select
                       disabled
@@ -688,13 +806,16 @@ export default function App(): React.ReactElement {
                       <label className="block text-sm font-medium text-gray-300 mb-2">
                         Quality
                       </label>
-                      <Select<ImageQuality>
-                        value={quality}
-                        onChange={setQuality}
-                        options={getQualityOptions(model)}
-                        className="w-full"
-                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                                              />
+                      <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
+                        <Select<ImageQuality>
+                          value={quality}
+                          onChange={setQuality}
+                          options={getQualityOptions(model)}
+                          disabled={isGenerationInProgress}
+                          className="w-full"
+                          popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                                                />
+                        </Tooltip>
                     </Col>
                   )}
 
@@ -703,13 +824,16 @@ export default function App(): React.ReactElement {
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Size
                     </label>
-                    <Select<ImageSize>
-                      value={size}
-                      onChange={setSize}
-                      options={getSizeOptions(model)}
-                      className="w-full"
-                      popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                                          />
+                    <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
+                      <Select<ImageSize>
+                        value={size}
+                        onChange={setSize}
+                        options={getSizeOptions(model)}
+                        disabled={isGenerationInProgress}
+                        className="w-full"
+                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                                            />
+                      </Tooltip>
                   </Col>
 
                   {/* Format */}
@@ -717,13 +841,16 @@ export default function App(): React.ReactElement {
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Format
                     </label>
-                    <Select<DownloadFormat>
-                      value={type}
-                      onChange={setType}
-                      options={FORMAT_OPTIONS}
-                      className="w-full"
-                      popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                                          />
+                    <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
+                      <Select<DownloadFormat>
+                        value={type}
+                        onChange={setType}
+                        options={FORMAT_OPTIONS}
+                        disabled={isGenerationInProgress}
+                        className="w-full"
+                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                                            />
+                      </Tooltip>
                   </Col>
 
                   {/* Number of Images */}
@@ -731,13 +858,16 @@ export default function App(): React.ReactElement {
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Number of Images
                     </label>
-                    <InputNumber
-                      value={number}
-                      onChange={(val) => setNumber(val ?? 1)}
-                      min={1}
-                      max={10}
-                      className="w-full"
-                    />
+                    <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
+                      <InputNumber
+                        value={number}
+                        onChange={(val) => setNumber(val ?? 1)}
+                        min={1}
+                        max={10}
+                        disabled={isGenerationInProgress}
+                        className="w-full"
+                      />
+                    </Tooltip>
                   </Col>
 
                   {/* Style (DALL-E 3 only) */}
@@ -755,13 +885,16 @@ export default function App(): React.ReactElement {
                           <InfoCircleOutlined className="text-accent-cyan cursor-help" />
                         </Tooltip>
                       </label>
-                      <Select<ImageStyle>
-                        value={style}
-                        onChange={setStyle}
-                        options={STYLE_OPTIONS}
-                        className="w-full"
-                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                                              />
+                      <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
+                        <Select<ImageStyle>
+                          value={style}
+                          onChange={setStyle}
+                          options={STYLE_OPTIONS}
+                          disabled={isGenerationInProgress}
+                          className="w-full"
+                          popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                                                />
+                        </Tooltip>
                     </Col>
                   )}
                 </Row>
@@ -855,73 +988,167 @@ export default function App(): React.ReactElement {
 
           {/* Results Grid */}
           <AnimatePresence>
-            {results.length > 0 && (
+            {generationItems.length > 0 && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 className="mb-8"
               >
-                <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                  <StarOutlined className="text-accent-cyan" />
-                  Generated Images
-                  <span className="text-sm font-normal text-gray-500">({results.length} result{results.length !== 1 ? 's' : ''})</span>
-                </h3>
+                {/* Progress Counter */}
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-white flex items-center gap-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                    <StarOutlined className="text-accent-cyan" />
+                    Generated Images
+                    <span className="text-sm font-normal text-gray-500">
+                      ({generationItems.length} image{generationItems.length !== 1 ? 's' : ''})
+                    </span>
+                  </h3>
+                  {/* Progress Counter */}
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const completedCount = generationItems.filter(i => i.status === 'success').length;
+                      const failedCount = generationItems.filter(i => i.status === 'error').length;
+                      const totalCount = generationItems.length;
+                      const inProgress = generationItems.some(i => i.status === 'pending' || i.status === 'loading');
+
+                      if (inProgress || completedCount > 0 || failedCount > 0) {
+                        return (
+                          <motion.span
+                            key={`progress-${completedCount}-${failedCount}`}
+                            initial={{ scale: 0.9, opacity: 0.7 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="text-sm font-medium px-4 py-2 rounded-full bg-glass-light backdrop-blur-md border border-glass-border"
+                          >
+                            <span className="text-gray-300">
+                              Generated: <span className="text-accent-cyan font-bold">{completedCount}</span>/{totalCount}
+                            </span>
+                            {failedCount > 0 && (
+                              <span className="ml-3 text-red-400">
+                                ({failedCount} failed)
+                              </span>
+                            )}
+                          </motion.span>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                </div>
 
                 <Row gutter={[16, 16]}>
-                  {results.map((result, index) => (
-                    <Col xs={24} sm={12} lg={8} key={index}>
+                  {generationItems.map((item, index) => (
+                    <Col xs={24} sm={12} lg={8} key={item.id}>
                       <motion.div
                         initial={{ opacity: 0, y: 30 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1, type: 'spring', stiffness: 100 }}
+                        transition={{ delay: index * 0.05, type: 'spring', stiffness: 100 }}
                         whileHover={{ y: -8 }}
                       >
-                        <Card
-                          hoverable
-                          className="glass-card overflow-hidden !border-0"
-                          cover={
-                            result.url ? (
-                              <div
-                                className="relative overflow-hidden cursor-pointer"
-                                style={{ backgroundColor: 'var(--color-card-bg)' }}
-                                onClick={() => openPreview(result.url!, index)}
-                              >
-                                <img
-                                  src={result.url}
-                                  alt={`Generated image ${index + 1}`}
-                                  className="!w-full transition-transform duration-300 hover:scale-105"
-                                  style={{ height: 280, objectFit: 'cover' }}
+                        {/* Loading Card */}
+                        {(item.status === 'pending' || item.status === 'loading') && (
+                          <Card className="glass-card overflow-hidden !border-0">
+                            <div className="flex flex-col items-center justify-center py-12" style={{ minHeight: 360 }}>
+                              <div className="relative">
+                                <motion.div
+                                  className="w-16 h-16 rounded-full"
+                                  style={{
+                                    background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%)',
+                                  }}
+                                  animate={{ rotate: 360 }}
+                                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-background)] via-transparent to-transparent opacity-60" />
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
-                                  <ZoomInOutlined className="text-white text-4xl drop-shadow-lg" />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <LoadingOutlined className="text-2xl text-white" />
                                 </div>
                               </div>
-                            ) : null
-                          }
-                          actions={[
-                            <Button
-                              key="download"
-                              type="primary"
-                              icon={<DownloadOutlined />}
-                              disabled={!result.url}
-                              onClick={() => result.url ? void download(result.url) : undefined}
-                              className="!bg-accent-purple !border-accent-purple hover:!bg-accent-purple/80"
-                            >
-                              Download
-                            </Button>,
-                          ]}
-                        >
-                          <div className="text-white">
-                            <h4 className="font-semibold text-lg mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                              Image #{index + 1}
-                            </h4>
-                            <p className="text-gray-400 text-sm line-clamp-3">
-                              {result.revised_prompt ?? prompt}
-                            </p>
-                          </div>
-                        </Card>
+                              <h4 className="text-white font-semibold text-lg mt-4 mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                                Image #{item.id + 1}
+                              </h4>
+                              <p className="text-gray-400 text-sm">
+                                {item.status === 'pending' ? 'Waiting to start...' : 'Generating...'}
+                              </p>
+                            </div>
+                          </Card>
+                        )}
+
+                        {/* Error Card */}
+                        {item.status === 'error' && (
+                          <Card className="glass-card overflow-hidden !border-0 !border-red-500/30">
+                            <div className="flex flex-col items-center justify-center py-8 text-center" style={{ minHeight: 360 }}>
+                              <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
+                                <CloseCircleOutlined className="text-4xl text-red-400" />
+                              </div>
+                              <h4 className="text-white font-semibold text-lg mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                                Image #{item.id + 1}
+                              </h4>
+                              <p className="text-red-400 text-sm mb-4 px-4">
+                                {item.error || 'Generation failed'}
+                              </p>
+                              <Button
+                                type="primary"
+                                icon={<ReloadOutlined />}
+                                onClick={() => void retryImage(item.id)}
+                                className="!bg-accent-purple !border-accent-purple hover:!bg-accent-purple/80"
+                              >
+                                Retry
+                              </Button>
+                            </div>
+                          </Card>
+                        )}
+
+                        {/* Success Card */}
+                        {item.status === 'success' && item.result && (
+                          <Card
+                            hoverable
+                            className="glass-card overflow-hidden !border-0"
+                            cover={
+                              item.result.url ? (
+                                <div
+                                  className="relative overflow-hidden cursor-pointer"
+                                  style={{ backgroundColor: 'var(--color-card-bg)' }}
+                                  onClick={() => openPreview(item.result.url!, item.id)}
+                                >
+                                  <img
+                                    src={item.result.url}
+                                    alt={`Generated image ${item.id + 1}`}
+                                    className="!w-full transition-transform duration-300 hover:scale-105"
+                                    style={{ height: 280, objectFit: 'cover' }}
+                                  />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-background)] via-transparent to-transparent opacity-60" />
+                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                                    <ZoomInOutlined className="text-white text-4xl drop-shadow-lg" />
+                                  </div>
+                                  <div className="absolute top-3 right-3 flex items-center gap-2 bg-black/50 backdrop-blur-md rounded-full px-3 py-1">
+                                    <CheckCircleOutlined className="text-accent-cyan text-sm" />
+                                    <span className="text-white text-xs font-medium">Ready</span>
+                                  </div>
+                                </div>
+                              ) : null
+                            }
+                            actions={[
+                              <Button
+                                key="download"
+                                type="primary"
+                                icon={<DownloadOutlined />}
+                                disabled={!item.result.url}
+                                onClick={() => item.result.url ? void download(item.result.url) : undefined}
+                                className="!bg-accent-purple !border-accent-purple hover:!bg-accent-purple/80"
+                              >
+                                Download
+                              </Button>,
+                            ]}
+                          >
+                            <div className="text-white">
+                              <h4 className="font-semibold text-lg mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                                Image #{item.id + 1}
+                              </h4>
+                              <p className="text-gray-400 text-sm line-clamp-3">
+                                {item.result.revised_prompt ?? prompt}
+                              </p>
+                            </div>
+                          </Card>
+                        )}
                       </motion.div>
                     </Col>
                   ))}
@@ -931,7 +1158,7 @@ export default function App(): React.ReactElement {
           </AnimatePresence>
 
           {/* Empty State - Show before first generation */}
-          {results.length === 0 && !loading && !error && (
+          {generationItems.length === 0 && !loading && !error && (
             <motion.div
               variants={itemVariants}
               className="glass-card p-12 text-center"

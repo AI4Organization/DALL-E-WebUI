@@ -13,6 +13,17 @@ export interface OpenAIImageResult {
 // ============ Image Generation Types ============
 export type ImageQuality = 'standard' | 'hd';
 
+// Status of an individual image generation request
+export type ImageGenerationStatus = 'pending' | 'loading' | 'success' | 'error';
+
+// Individual image generation item with status tracking
+export interface ImageGenerationItem {
+  id: number;
+  status: ImageGenerationStatus;
+  result?: OpenAIImageResult;
+  error?: string;
+}
+
 // DALL-E 2 sizes: 256x256, 512x512, 1024x1024
 // DALL-E 3 sizes: 1024x1024, 1024x1792, 1792x1024
 export type ImageSize =

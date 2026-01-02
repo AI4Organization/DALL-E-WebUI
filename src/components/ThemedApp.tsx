@@ -1,4 +1,5 @@
 import { ConfigProvider, theme as antTheme } from 'antd';
+import { Toaster } from 'sonner';
 import { useTheme } from '../lib/theme';
 
 interface ThemedAppProps {
@@ -74,6 +75,20 @@ export function ThemedApp({ children }: ThemedAppProps): React.ReactElement {
   return (
     <ConfigProvider theme={customTheme}>
       {children}
+      <Toaster
+        theme={effectiveTheme === 'dark' ? 'dark' : 'light'}
+        position="top-right"
+        richColors
+        closeButton
+        toastOptions={{
+          style: {
+            background: effectiveTheme === 'dark' ? 'rgba(15, 15, 25, 0.95)' : 'rgba(255, 255, 255, 0.98)',
+            border: effectiveTheme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.08)',
+            borderRadius: '12px',
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          },
+        }}
+      />
     </ConfigProvider>
   );
 }
