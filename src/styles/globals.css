@@ -1,0 +1,428 @@
+@import "tailwindcss";
+
+/* ===== CSS Variables for Themes ===== */
+:root {
+  --transition-speed: 0.3s;
+}
+
+/* Dark Theme */
+.dark-theme {
+  --color-background: #0a0a12 !important;
+  --color-glass-dark: rgba(15, 15, 25, 0.85);
+  --color-glass-light: rgba(255, 255, 255, 0.05);
+  --color-glass-border: rgba(255, 255, 255, 0.1);
+  --color-text-primary: #ffffff !important;
+  --color-text-secondary: rgba(255, 255, 255, 0.7) !important;
+  --color-text-muted: rgba(255, 255, 255, 0.5) !important;
+  --color-input-bg: rgba(255, 255, 255, 0.05);
+  --color-input-border: rgba(255, 255, 255, 0.1);
+  --color-card-bg: rgba(15, 15, 25, 0.85) !important;
+  --color-scroll-track: #0a0a12 !important;
+  --color-overlay-dark: rgba(10, 10, 18, 0.95);
+  --gradient-mesh: conic-gradient(
+    from 0deg at 50% 50%,
+    #1a1a2e 0deg,
+    #16213e 60deg,
+    #0f0f23 120deg,
+    #1a1a2e 180deg,
+    #16213e 240deg,
+    #0f0f23 300deg,
+    #1a1a2e 360deg
+  );
+  --blob-opacity: 0.3;
+}
+
+/* Light Theme */
+.light-theme {
+  --color-background: #f8f9fc !important;
+  --color-glass-dark: rgba(255, 255, 255, 0.9);
+  --color-glass-light: rgba(0, 0, 0, 0.02);
+  --color-glass-border: rgba(0, 0, 0, 0.1);
+  --color-text-primary: #1a1a2e !important;
+  --color-text-secondary: rgba(26, 26, 46, 0.7) !important;
+  --color-text-muted: rgba(26, 26, 46, 0.5) !important;
+  --color-input-bg: rgba(255, 255, 255, 0.9);
+  --color-input-border: rgba(0, 0, 0, 0.15);
+  --color-card-bg: rgba(255, 255, 255, 0.95) !important;
+  --color-scroll-track: #f0f1f5 !important;
+  --color-overlay-dark: rgba(248, 249, 252, 0.95);
+  --gradient-mesh: conic-gradient(
+    from 0deg at 50% 50%,
+    #e8f4fc 0deg,
+    #f0e6fc 60deg,
+    #fcf0f6 120deg,
+    #e8f4fc 180deg,
+    #f0e6fc 240deg,
+    #fcf0f6 300deg,
+    #e8f4fc 360deg
+  );
+  --blob-opacity: 0.15;
+}
+
+/* Custom Theme Variables */
+@theme {
+  --color-accent-purple: #a855f7;
+  --color-accent-cyan: #22d3d3;
+  --color-accent-pink: #ec4899;
+  --font-display: 'Outfit', sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Base Styles - only use !important for theme colors */
+* {
+  border-color: var(--color-glass-border);
+  transition: background-color var(--transition-speed) ease,
+              color var(--transition-speed) ease,
+              border-color var(--transition-speed) ease,
+              box-shadow var(--transition-speed) ease;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--color-background) !important;
+  color: var(--color-text-primary) !important;
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* Text color utilities - use !important for theme consistency */
+.text-primary {
+  color: var(--color-text-primary) !important;
+}
+
+.text-secondary {
+  color: var(--color-text-secondary) !important;
+}
+
+.text-muted {
+  color: var(--color-text-muted) !important;
+}
+
+/* Override Tailwind text color classes to use theme variables */
+.text-white {
+  color: var(--color-text-primary) !important;
+}
+
+.text-gray-300 {
+  color: var(--color-text-secondary) !important;
+}
+
+.text-gray-400 {
+  color: var(--color-text-secondary) !important;
+}
+
+.text-gray-500 {
+  color: var(--color-text-muted) !important;
+}
+
+/* Custom Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-20px); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+  }
+  50% {
+    opacity: 0.8;
+    box-shadow: 0 0 40px rgba(168, 85, 247, 0.8);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+@keyframes blob {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+/* Glass Card Component - NO !important on layout properties */
+.glass-card {
+  background-color: var(--color-card-bg);
+  backdrop-filter: blur(40px);
+  border: 1px solid var(--color-glass-border);
+  border-radius: 1rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+/* Glass Input Component */
+.glass-input {
+  background-color: var(--color-input-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--color-input-border);
+  border-radius: 0.75rem;
+  color: var(--color-text-primary);
+  width: 100%;
+}
+
+.glass-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.glass-input:focus {
+  border-color: rgba(168, 85, 247, 0.5);
+  outline: none;
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Gradient Backgrounds */
+.bg-gradient-mesh {
+  background: var(--gradient-mesh);
+}
+
+.bg-gradient-glow {
+  background: linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%);
+}
+
+/* Glow Button */
+.glow-button {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.glow-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.5s ease;
+}
+
+.glow-button:hover::before {
+  left: 100%;
+}
+
+.glow-button:hover {
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.6);
+  transform: translateY(-2px);
+}
+
+/* Custom Scrollbar - hidden by default, shown on hover */
+/* Hide scrollbar by default */
+::-webkit-scrollbar {
+  width: 0px;
+  height: 0px;
+  background: transparent;
+}
+
+/* Show scrollbar on hover for main scrollable areas */
+html:hover::-webkit-scrollbar,
+body:hover::-webkit-scrollbar,
+[role="dialog"]:hover::-webkit-scrollbar,
+.ant-modal-body:hover::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* Track - only visible on hover */
+html:hover::-webkit-scrollbar-track,
+body:hover::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* Thumb - visible on hover with delay for smooth appearance */
+html:hover::-webkit-scrollbar-thumb,
+body:hover::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #a855f7, #ec4899);
+  border-radius: 9999px;
+  transition: background 0.3s ease;
+}
+
+html:hover::-webkit-scrollbar-thumb:hover,
+body:hover::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #ec4899, #22d3d3);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+html:hover *,
+body:hover * {
+  scrollbar-width: thin;
+  scrollbar-color: #a855f7 transparent;
+}
+
+/* Selection Styling */
+::selection {
+  background-color: rgba(168, 85, 247, 0.3);
+}
+
+/* Ant Design Dropdown Styling */
+.ant-select-dropdown {
+  background-color: var(--color-card-bg) !important;
+  border: 1px solid var(--color-glass-border) !important;
+  backdrop-filter: blur(20px) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Ensure dropdown items are clearly visible */
+.ant-select-item,
+.ant-select-item-option {
+  color: var(--color-text-primary) !important;
+  background-color: transparent !important;
+}
+
+/* Selected state - clear purple highlight */
+.ant-select-item-option-selected {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Active/hover state */
+.ant-select-item-option-active {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  color: var(--color-text-primary) !important;
+}
+
+/* Disabled items */
+.ant-select-item-option-disabled {
+  color: var(--color-text-muted) !important;
+  cursor: not-allowed !important;
+  opacity: 0.5 !important;
+}
+
+/* Empty state */
+.ant-select-item-empty {
+  color: var(--color-text-muted) !important;
+}
+
+/* Light mode specific fixes */
+.light-theme .ant-select-dropdown {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12) !important;
+}
+
+.light-theme .ant-select-item,
+.light-theme .ant-select-item-option {
+  color: #1a1a2e !important;
+  font-weight: 400 !important;
+}
+
+.light-theme .ant-select-item-option-selected {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  color: #0a0a12 !important;
+  font-weight: 500 !important;
+}
+
+.light-theme .ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+  color: #0a0a12 !important;
+}
+
+/* Dark mode specific fixes */
+.dark-theme .ant-select-dropdown {
+  background-color: rgba(15, 15, 25, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark-theme .ant-select-item,
+.dark-theme .ant-select-item-option {
+  color: #ffffff !important;
+}
+
+.dark-theme .ant-select-item-option-selected {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.dark-theme .ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+}
+
+/* Theme-specific dropdown class (for portal-rendered dropdowns) */
+.dark-select-dropdown {
+  background-color: rgba(15, 15, 25, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.dark-select-dropdown .ant-select-item,
+.dark-select-dropdown .ant-select-item-option {
+  color: #ffffff !important;
+}
+
+.dark-select-dropdown .ant-select-item-option-selected {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.dark-select-dropdown .ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+}
+
+.light-select-dropdown {
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12) !important;
+}
+
+.light-select-dropdown .ant-select-item,
+.light-select-dropdown .ant-select-item-option {
+  color: #1a1a2e !important;
+  font-weight: 400 !important;
+}
+
+.light-select-dropdown .ant-select-item-option-selected {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  color: #0a0a12 !important;
+  font-weight: 500 !important;
+}
+
+.light-select-dropdown .ant-select-item-option:hover:not(.ant-select-item-option-disabled) {
+  background-color: rgba(168, 85, 247, 0.2) !important;
+  color: #0a0a12 !important;
+}
+
+/* Dropdown header/placeholder text */
+.ant-select-selection-placeholder {
+  color: var(--color-text-muted) !important;
+}
+
+.ant-select-selection-item {
+  color: var(--color-text-primary) !important;
+}
+
+/* Line Clamp Utility */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

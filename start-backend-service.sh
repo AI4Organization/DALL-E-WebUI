@@ -30,8 +30,8 @@ while IFS= read -r line || [ -n "$line" ]; do
 done < "$ENV_FILE"
 
 echo "Environment variables loaded from $ENV_FILE"
-echo "Starting backend service on port 3001 and frontend service on port 3000..."
+echo "Starting backend service on port 3001..."
 echo ""
 
-# Run npm run dev
-npm run dev
+# Run npm run dev:backend
+npm run dev:backend

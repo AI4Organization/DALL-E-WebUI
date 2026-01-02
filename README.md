@@ -8,7 +8,7 @@
 
 ## Requirements
 
-- Node.js >= 18.0.0
+- Node.js >= 24.0.0
 - Create `.env` file from `.env.example` with the following variables:
   - `OPENAI_API_KEY` - Your API key (get from [OpenAI Platform](https://platform.openai.com/docs/quickstart) or [OpenRouter](https://openrouter.ai/settings/keys))
   - `OPENAI_BASE_URL` - Base URL for the API (default: `https://api.openai.com/v1`)
@@ -53,18 +53,41 @@ Example prompt: `A sleeping cat and flower vase on the kitchen table in the arti
 
 ## Tech Stack
 
-- **Framework**: Next.js 16.x (Pages Router)
-- **UI Library**: React 19.x with Ant Design 6.x
+- **Frontend**: Rsbuild (Rspack-based bundler) with React 19.x
+- **Backend**: Express.js server with TypeScript
+- **UI Library**: Ant Design 6.x with custom dark/light theming
+- **Styling**: Tailwind CSS 4.x
+- **Animations**: Framer Motion 12.x
 - **Type Safety**: TypeScript 5.x (strict mode enabled)
 - **API Client**: OpenAI SDK 6.x
 - **Image Processing**: sharp 0.34.x
 
-## API Routes
+## Architecture
 
-The `pages/api` directory is mapped to `/api/*`:
-- `/api/config` - Server configuration and available models
-- `/api/images` - Image generation via OpenAI DALL-E API
-- `/api/download` - Image format conversion
+This is a **decoupled frontend/backend architecture**:
+
+- **Frontend (Rsbuild SPA)**: Runs on port 3000, serves static files
+- **Backend (Express API)**: Runs on port 3001, handles API requests
+
+## API Endpoints
+
+The Express server provides the following endpoints:
+- `GET /api/config` - Server configuration and available models
+- `POST /api/images` - Image generation via OpenAI DALL-E API
+- `POST /api/download` - Image format conversion
+- `GET /health` - Health check endpoint
+
+## Docker Deployment
+
+Build and run with Docker Compose:
+
+```bash
+docker-compose up -d --build
+```
+
+Services:
+- `backend`: Express API server (port 3001)
+- `frontend`: Nginx serving Rsbuild static files (port 3000)
 
 ## Developer Notes
 

@@ -5,19 +5,20 @@
   "author": "AI4Organization Engineers",
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:rsbuild\"",
     "dev:backend": "nodemon --exec tsx server/index.ts",
-    "dev:frontend": "next dev",
+    "dev:rsbuild": "rsbuild dev",
     "dev:next": "next dev",
-    "build": "npm run build:backend && npm run build:frontend",
+    "build": "npm run build:backend && npm run build:rsbuild",
     "build:backend": "tsc --project tsconfig.server.json",
-    "build:frontend": "next build",
-    "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
+    "build:rsbuild": "rsbuild build",
+    "build:next": "next build",
+    "start": "concurrently \"npm run start:backend\" \"npm run start:rsbuild\"",
     "start:backend": "node server/dist/index.js",
-    "start:frontend": "next start",
+    "start:rsbuild": "rsbuild preview",
     "start:next": "next start",
     "lint": "next lint"
   },

@@ -1,0 +1,50 @@
+# Frontend Dockerfile - Rsbuild SPA
+FROM node:24-alpine AS base
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+COPY rsbuild.config.ts ./
+COPY postcss.config.js ./
+
+# Install all dependencies (including dev dependencies for build)
+RUN npm ci && npm cache clean --force
+
+# Copy source files
+COPY types/ ./types/
+COPY src/ ./src/
+COPY index.html ./
+
+# Build the application
+RUN npm run build:rsbuild
+
+# Production stage - serve static files with nginx
+FROM nginx:alpine AS production
+
+# Copy built assets from base stage
+COPY --from=base /app/dist /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Create nginx user
+RUN addgroup -g 1001 -S nginx-group && \
+    adduser -S nginx-user -u 1001 -G nginx-group && \
+    chown -R nginx-user:nginx-group /usr/share/nginx/html && \
+    chown -R nginx-user:nginx-group /var/cache/nginx && \
+    chown -R nginx-user:nginx-group /var/log/nginx && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx-user:nginx-group /var/run/nginx.pid
+
+# Switch to non-root user
+USER nginx-user
+
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]
