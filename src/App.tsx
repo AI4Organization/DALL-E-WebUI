@@ -231,8 +231,6 @@ export default function App(): React.ReactElement {
       try {
         const res = await axios.get(`${process.env.API_BASE_URL}/api/config`);
         setAvailableModels(res.data.availableModels);
-        const defaultModel = res.data.availableModels.find((m: ModelOption) => m.value === 'dall-e-3')?.value ?? res.data.availableModels[0]?.value ?? null;
-        setModel(defaultModel);
         setConfigError(null); // Clear any previous error
         setConfigLoading(false);
       } catch (err) {
@@ -258,6 +256,14 @@ export default function App(): React.ReactElement {
 
     void fetchConfig();
   }, []);
+
+  // Set default model after availableModels is populated
+  useEffect(() => {
+    if (!configLoading && availableModels.length > 0 && !model) {
+      const defaultModel = availableModels.find((m: ModelOption) => m.value === 'dall-e-3')?.value ?? availableModels[0]?.value ?? null;
+      setModel(defaultModel);
+    }
+  }, [configLoading, availableModels, model]);
 
   // ============ Handlers ============
   const getImages = useCallback(async (): Promise<void> => {
@@ -289,6 +295,18 @@ export default function App(): React.ReactElement {
         'Prompt Too Short',
         'Your prompt is quite short. More detailed prompts usually produce better results.',
         'Try describing your vision in more detail - include style, mood, objects, colors, etc.',
+        'prompt'
+      ));
+    }
+
+    // Word count validation (max 4096 words)
+    const wordCount = prompt.trim().split(/\s+/).filter(w => w.length > 0).length;
+    if (wordCount > 4096) {
+      issues.push(createValidationIssue(
+        'error',
+        'Prompt Too Long',
+        `Your prompt has ${wordCount} words, but the maximum is 4096 words.`,
+        'Please shorten your prompt to 4096 words or fewer.',
         'prompt'
       ));
     }
@@ -622,14 +640,14 @@ export default function App(): React.ReactElement {
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder="A futuristic city at sunset, with flying cars and neon lights reflecting off glass buildings..."
                     autoSize={false}
-                    maxLength={4000}
-                    showCount
+                    maxLength={25000}
                     style={{ height: textAreaHeight, overflowY: 'auto' }}
                     className="glass-input !text-base resize-none"
                   />
+                  {/* Custom word count display */}
                   <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-gray-500">
-                    <StarOutlined className="text-accent-cyan" />
-                    Be descriptive for best results
+                    <span>{prompt.trim() ? prompt.trim().split(/\s+/).length : 0} / 4096 words</span>
+                    <StarOutlined className="text-accent-cyan ml-2" />
                   </div>
                 </motion.div>
 
@@ -640,16 +658,28 @@ export default function App(): React.ReactElement {
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Model
                     </label>
+                  {configLoading ? (
+                    <Select
+                      disabled
+                      placeholder="Loading models..."
+                      className="w-full"
+                    />
+                  ) : model ? (
                     <Select
                       value={model}
                       onChange={setModel}
-                      loading={configLoading}
-                      disabled={configLoading}
-                      placeholder="Select model"
                       options={availableModels}
+                      placeholder="Select a model"
                       className="w-full"
                       popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                                          />
+                    />
+                  ) : (
+                    <Select
+                      disabled
+                      placeholder="Select a model"
+                      className="w-full"
+                    />
+                  )}
                   </Col>
 
                   {/* Quality */}

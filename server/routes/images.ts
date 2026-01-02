@@ -12,7 +12,7 @@ import type {
 const router = Router();
 
 // POST /api/images - Handles DALL-E image generation
-router.get('/', async (req: Request, res: Response<ImagesApiResponse | { error: string; details?: string[] }>) => {
+router.post('/', async (req: Request, res: Response<ImagesApiResponse | { error: string; details?: string[] }>) => {
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     baseURL: process.env.OPENAI_BASE_URL,

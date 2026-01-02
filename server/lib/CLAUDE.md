@@ -100,7 +100,7 @@ function validateRequestBody(body: RequestBody): ValidationResult
 
 | Field | Required | Validation |
 |-------|----------|------------|
-| `prompt` | Yes | Non-empty string, 1-4000 chars |
+| `prompt` | Yes | Non-empty string, 1-4096 words |
 | `model` | Yes | Valid model identifier |
 | `quality` | No | 'standard' or 'hd' |
 | `size` | No | Valid size for model |
@@ -116,7 +116,7 @@ function validateRequestBody(body: RequestBody): ValidationResult
 ```
 
 **Error Messages:**
-- `"Prompt is required and must be between 1 and 4000 characters."`
+- `"Prompt is required and must be between 1 and 4096 words."`
 - `"Model is required."`
 - `"Invalid quality value. Must be 'standard' or 'hd'."`
 - `"Invalid size value."`

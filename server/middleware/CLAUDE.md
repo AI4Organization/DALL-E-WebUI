@@ -115,7 +115,7 @@ if (!req.body.prompt) {
 
 ```json
 {
-  "error": "Prompt is required and must be between 1 and 4000 characters."
+  "error": "Prompt is required and must be between 1 and 4096 words."
 }
 ```
 
