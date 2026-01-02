@@ -2,7 +2,9 @@
 
 ### Create realistic images and art from a description in natural language.
 
-![Xnapper-2023-01-15-23 41 21](https://github.com/AI4Organization/DALL-E-3-WebUI/blob/develop/assets/CleanShot%202023-11-12%20at%2022.26.36%402x.png)
+![Main Screen](./assets/image1.png)
+
+![Result Screen](./assets/image2.png)
 
 ## Requirements
 

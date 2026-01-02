@@ -6,7 +6,7 @@ This directory contains the Next.js Pages Router structure.
 
 ```
 pages/
-  _app.tsx           # Next.js App wrapper with Ant Design ConfigProvider
+  _app.tsx           # Next.js App wrapper with ThemeProvider
   index.tsx          # Main application page - UI for DALL-E 3 image generation
   api/
     config.ts        # API endpoint for server configuration
@@ -26,12 +26,24 @@ Main React component containing:
 - Results grid display with click-to-download
 - Configuration error modal dialog
 - Style dropdown with info icon tooltip explaining each style option
+- Theme toggle button integration (dark/light mode)
 - Default size: "auto" for DALL-E 3, "1024x1024" for DALL-E 2
 
 ### `_app.tsx`
 Next.js app wrapper that:
-- Wraps the app with Ant Design `ConfigProvider`
-- Configures the Ant Design theme (cadetblue primary color)
+- Wraps the app with `ThemeProvider` from `lib/theme.tsx`
+- Delegates Ant Design theming to `components/ThemedApp.tsx`
+- Imports global styles from `styles/globals.css`
+- Configures Google Fonts (Inter and Outfit families)
+- Sets up proper viewport meta tags
+- Integrates the `ThemeToggle` component for theme switching
+
+**Structure**:
+```tsx
+<ThemeProvider>
+  <ThemedApp {...appProps} />
+</ThemeProvider>
+```
 
 ## API Routes
 

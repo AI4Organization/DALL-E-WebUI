@@ -1,19 +1,19 @@
 import type { AppProps } from 'next/app';
 import { ConfigProvider, theme as antTheme } from 'antd';
+import Head from 'next/head';
+import '../styles/globals.css';
+import { ThemeProvider } from '../lib/theme';
+import { ThemedApp } from '../components/ThemedApp';
 
-// Custom theme configuration
-const customTheme = {
-  algorithm: antTheme.defaultAlgorithm,
-  token: {
-    colorPrimary: '#5f9ea0', // cadetblue - matching original design
-    borderRadius: 6,
-  },
-};
-
-export default function MyApp({ Component, pageProps }: AppProps): React.ReactElement {
+export default function MyApp(appProps: AppProps): React.ReactElement {
   return (
-    <ConfigProvider theme={customTheme}>
-      <Component {...pageProps} />
-    </ConfigProvider>
+    <>
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
+      <ThemeProvider>
+        <ThemedApp {...appProps} />
+      </ThemeProvider>
+    </>
   );
 }
