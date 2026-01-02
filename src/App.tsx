@@ -44,7 +44,7 @@ import { DALL_E_2_SIZES, DALL_E_3_SIZES } from '../types';
 const { TextArea } = Input;
 
 // Get API base URL from definePlugin in rsbuild.config.ts
-declare const API_BASE_URL: string;
+declare const process: { env: { API_BASE_URL: string } };
 
 // ============ Constants ============
 const QUALITY_OPTIONS: { value: ImageQuality; label: string }[] = [
@@ -229,10 +229,11 @@ export default function App(): React.ReactElement {
   useEffect(() => {
     const fetchConfig = async (): Promise<void> => {
       try {
-        const res = await axios.get(`${API_BASE_URL}/api/config`);
+        const res = await axios.get(`${process.env.API_BASE_URL}/api/config`);
         setAvailableModels(res.data.availableModels);
         const defaultModel = res.data.availableModels.find((m: ModelOption) => m.value === 'dall-e-3')?.value ?? res.data.availableModels[0]?.value ?? null;
         setModel(defaultModel);
+        setConfigError(null); // Clear any previous error
         setConfigLoading(false);
       } catch (err) {
         const axiosError = err as { response?: { data?: { error: string; details?: string[] }; status?: number } };
@@ -245,6 +246,13 @@ export default function App(): React.ReactElement {
           });
         }
         setConfigLoading(false);
+
+        // Retry after 2 seconds if connection failed
+        if (!axiosError.response?.status) {
+          setTimeout(() => {
+            fetchConfig();
+          }, 2000);
+        }
       }
     };
 
@@ -376,7 +384,7 @@ export default function App(): React.ReactElement {
     }
 
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/images?${queryParams}`);
+      const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
       setResults(res.data.result);
     } catch (err) {
       console.error('API error:', err);
@@ -403,7 +411,7 @@ export default function App(): React.ReactElement {
 
   const download = useCallback(async (url: string): Promise<void> => {
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/download`, { url, type });
+      const res = await axios.post(`${process.env.API_BASE_URL}/api/download`, { url, type });
       const link = document.createElement('a');
       link.href = res.data.result;
       link.download = `${prompt}.${type}`;
@@ -526,6 +534,14 @@ export default function App(): React.ReactElement {
         }
         onCancel={() => setConfigError(null)}
         footer={[
+          <Button key="retry" onClick={() => {
+            setConfigError(null);
+            setConfigLoading(true);
+            // Re-fetch config by triggering the effect again
+            window.location.reload();
+          }} className="bg-accent-purple border-accent-purple text-white hover:bg-accent-purple/80">
+            Retry
+          </Button>,
           <Button key="dismiss" onClick={() => setConfigError(null)} className="bg-accent-purple border-accent-purple text-white hover:bg-accent-purple/80">
             Dismiss
           </Button>,

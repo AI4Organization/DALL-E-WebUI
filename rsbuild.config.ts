@@ -10,7 +10,9 @@ export default defineConfig({
     },
     define: {
       'process.env.API_BASE_URL': JSON.stringify(
-        process.env.API_BASE_URL || 'http://localhost:3001'
+        // In development, use empty string to leverage Rsbuild proxy
+        // In production, use the actual backend URL
+        process.env.NODE_ENV === 'development' ? '' : (process.env.API_BASE_URL || 'http://localhost:3001')
       )
     }
   },
