@@ -226,23 +226,52 @@ body {
   transform: translateY(-2px);
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - hidden by default, shown on hover */
+/* Hide scrollbar by default */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0px;
+  height: 0px;
+  background: transparent;
 }
 
-::-webkit-scrollbar-track {
-  background-color: var(--color-scroll-track);
+/* Show scrollbar on hover for main scrollable areas */
+html:hover::-webkit-scrollbar,
+body:hover::-webkit-scrollbar,
+[role="dialog"]:hover::-webkit-scrollbar,
+.ant-modal-body:hover::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-::-webkit-scrollbar-thumb {
+/* Track - only visible on hover */
+html:hover::-webkit-scrollbar-track,
+body:hover::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* Thumb - visible on hover with delay for smooth appearance */
+html:hover::-webkit-scrollbar-thumb,
+body:hover::-webkit-scrollbar-thumb {
   background: linear-gradient(to bottom, #a855f7, #ec4899);
   border-radius: 9999px;
+  transition: background 0.3s ease;
 }
 
-::-webkit-scrollbar-thumb:hover {
+html:hover::-webkit-scrollbar-thumb:hover,
+body:hover::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(to bottom, #ec4899, #22d3d3);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+html:hover *,
+body:hover * {
+  scrollbar-width: thin;
+  scrollbar-color: #a855f7 transparent;
 }
 
 /* Selection Styling */
