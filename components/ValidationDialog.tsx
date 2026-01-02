@@ -47,7 +47,7 @@ export function ValidationDialog({ visible, issues, onDismiss, onFix }: Validati
     return <></>;
   }
 
-  const primaryIssue = issues[0];
+  const primaryIssue = issues[0]!; // Safe: we checked length > 0 above
   const config = severityConfig[primaryIssue.type];
 
   return (

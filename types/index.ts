@@ -14,7 +14,7 @@ export interface OpenAIImageResult {
 export type ImageQuality = 'standard' | 'hd';
 
 // DALL-E 2 sizes: 256x256, 512x512, 1024x1024
-// DALL-E 3 sizes: 1024x1024, 1024x1792, 1792x1024, auto
+// DALL-E 3 sizes: 1024x1024, 1024x1792, 1792x1024
 export type ImageSize =
   // DALL-E 2 sizes
   | '256x256'
@@ -22,15 +22,14 @@ export type ImageSize =
   | '1024x1024'
   // DALL-E 3 sizes
   | '1024x1792'
-  | '1792x1024'
-  | 'auto';
+  | '1792x1024';
 
 export type ImageStyle = 'vivid' | 'natural';
 export type DownloadFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif';
 
 // Model-specific size options
 export const DALL_E_2_SIZES: readonly ImageSize[] = ['256x256', '512x512', '1024x1024'] as const;
-export const DALL_E_3_SIZES: readonly ImageSize[] = ['1024x1024', '1024x1792', '1792x1024', 'auto'] as const;
+export const DALL_E_3_SIZES: readonly ImageSize[] = ['1024x1024', '1024x1792', '1792x1024'] as const;
 
 export interface ModelOption {
   value: string;

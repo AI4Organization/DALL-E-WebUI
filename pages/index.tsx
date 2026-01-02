@@ -1,7 +1,7 @@
 'use client';
 
 import Head from 'next/head';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Input,
   InputNumber,
@@ -26,6 +26,9 @@ import {
   InfoCircleOutlined,
   ThunderboltOutlined,
   StarOutlined,
+  ZoomInOutlined,
+  ZoomOutOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -72,7 +75,6 @@ const getSizeOptions = (modelName: string | null): { value: ImageSize; label: st
     label: size === '1024x1024' ? '1024 x 1024 (Square)' :
            size === '1024x1792' ? '1024 x 1792 (Portrait)' :
            size === '1792x1024' ? '1792 x 1024 (Landscape)' :
-           size === 'auto' ? 'Auto' :
            size.replace('x', ' x '),
   }));
 };
@@ -88,7 +90,7 @@ const getDefaultSizeForModel = (modelName: string | null): ImageSize => {
   if (modelName === 'dall-e-2') {
     return '1024x1024';
   }
-  return 'auto';
+  return '1024x1024'; // Default for DALL-E 3
 };
 
 const STYLE_OPTIONS: { value: ImageStyle; label: string }[] = [
@@ -121,7 +123,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { type: 'spring', stiffness: 100, damping: 15 },
+    transition: { type: 'spring' as const, stiffness: 100, damping: 15 },
   },
 };
 
@@ -132,7 +134,7 @@ const blobVariants = {
     transition: {
       duration: 8,
       repeat: Infinity,
-      ease: 'easeInOut',
+      ease: 'easeInOut' as const,
     },
   },
 };
@@ -148,7 +150,7 @@ const FloatingBlob: React.FC<{ className?: string; color: string; delay?: number
     variants={blobVariants}
     animate="animate"
     initial={{ scale: 1, rotate: 0 }}
-    transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay }}
+    transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' as const, delay }}
   />
 );
 
@@ -158,6 +160,36 @@ export default function Home(): React.ReactElement {
 
   // ============ State ============
   const [prompt, setPrompt] = useState<string>('');
+  const [textAreaHeight, setTextAreaHeight] = useState<number>(120);
+  const textAreaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea based on content
+  const autoResizeTextArea = useCallback(() => {
+    const textArea = textAreaRef.current;
+    // Check if element exists and has a style property (client-side only)
+    if (textArea && textArea.style) {
+      // Reset height to auto to get the correct scrollHeight
+      textArea.style.height = 'auto';
+      // Calculate new height (min 120px, max 400px)
+      const newHeight = Math.min(Math.max(textArea.scrollHeight, 120), 400);
+      textArea.style.height = `${newHeight}px`;
+      setTextAreaHeight(newHeight);
+    }
+  }, []);
+
+  // Update textarea height when prompt changes
+  useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    const rafId = requestAnimationFrame(() => {
+      autoResizeTextArea();
+    });
+
+    return () => cancelAnimationFrame(rafId);
+  }, [prompt, autoResizeTextArea]);
+
   const [number, setNumber] = useState<number>(4);
   const [results, setResults] = useState<OpenAIImageResult[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -171,9 +203,16 @@ export default function Home(): React.ReactElement {
   const [configLoading, setConfigLoading] = useState<boolean>(true);
 
   const [quality, setQuality] = useState<ImageQuality>('standard');
-  const [size, setSize] = useState<ImageSize>('auto');
+  const [size, setSize] = useState<ImageSize>('1024x1024');
   const [style, setStyle] = useState<ImageStyle>('vivid');
   const [type, setType] = useState<DownloadFormat>('webp');
+
+  // Image preview state
+  const [previewImage, setPreviewImage] = useState<{ url: string; index: number } | null>(null);
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [imagePosition, setImagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // ============ Effects ============
   useEffect(() => {
@@ -306,7 +345,7 @@ export default function Home(): React.ReactElement {
         'error',
         'Invalid Size for DALL-E 3',
         `The size "${size}" is not supported by DALL-E 3.`,
-        'Choose a supported size: 1024x1024, 1792x1024, 1024x1792, or auto.',
+        'Choose a supported size: 1024x1024, 1792x1024, or 1024x1792.',
         'size'
       ));
     }
@@ -333,7 +372,7 @@ export default function Home(): React.ReactElement {
       n: String(number),
       q: quality,
       s: size,
-      m: model,
+      m: model ?? 'dall-e-3',
     });
 
     if (model === 'dall-e-3') {
@@ -385,6 +424,72 @@ export default function Home(): React.ReactElement {
     void getImages();
   };
 
+  // ============ Preview Handlers ============
+  const openPreview = (url: string, index: number): void => {
+    setPreviewImage({ url, index });
+    setZoomLevel(1);
+    setImagePosition({ x: 0, y: 0 });
+  };
+
+  const closePreview = (): void => {
+    setPreviewImage(null);
+    setZoomLevel(1);
+    setImagePosition({ x: 0, y: 0 });
+    setIsDragging(false);
+  };
+
+  const handleZoomIn = (): void => {
+    setZoomLevel((prev) => Math.min(prev + 0.25, 5));
+  };
+
+  const handleZoomOut = (): void => {
+    setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
+  };
+
+  const handleResetZoom = (): void => {
+    setZoomLevel(1);
+    setImagePosition({ x: 0, y: 0 });
+  };
+
+  const handleWheel = (e: React.WheelEvent): void => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoomLevel((prev) => Math.min(Math.max(prev + delta, 0.5), 5));
+  };
+
+  const handleMouseDown = (e: React.MouseEvent): void => {
+    if (zoomLevel > 1) {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - imagePosition.x, y: e.clientY - imagePosition.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent): void => {
+    if (isDragging && zoomLevel > 1) {
+      setImagePosition({
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y,
+      });
+    }
+  };
+
+  const handleMouseUp = (): void => {
+    setIsDragging(false);
+  };
+
+  const handleKeyDown = (e: KeyboardEvent): void => {
+    if (!previewImage) return;
+    if (e.key === 'Escape') closePreview();
+    if (e.key === '+' || e.key === '=') handleZoomIn();
+    if (e.key === '-' || e.key === '_') handleZoomOut();
+    if (e.key === '0') handleResetZoom();
+  };
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [previewImage, zoomLevel, imagePosition, dragStart]);
+
   // ============ Render ============
   return (
     <>
@@ -407,7 +512,7 @@ export default function Home(): React.ReactElement {
           if (field === 'number' && number < 1) setNumber(1);
           if (field === 'quality' && model === 'dall-e-2') setQuality('standard');
           if (field === 'size' && model === 'dall-e-2') setSize('1024x1024');
-          if (field === 'size' && model === 'dall-e-3') setSize('auto');
+          if (field === 'size' && model === 'dall-e-3') setSize('1024x1024');
         }}
       />
 
@@ -495,7 +600,7 @@ export default function Home(): React.ReactElement {
                 </div>
               </div>
 
-              <Space direction="vertical" size="large" className="w-full">
+              <Space orientation="vertical" size="large" className="w-full">
                 {/* Prompt Input with Floating Effect */}
                 <motion.div
                   className="relative"
@@ -507,13 +612,15 @@ export default function Home(): React.ReactElement {
                     Your Prompt
                   </label>
                   <TextArea
+                    ref={textAreaRef}
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     placeholder="A futuristic city at sunset, with flying cars and neon lights reflecting off glass buildings..."
-                    rows={4}
+                    autoSize={false}
                     maxLength={4000}
                     showCount
-                    className="glass-input !min-h-[120px] !text-base resize-none"
+                    style={{ height: textAreaHeight, overflowY: 'auto' }}
+                    className="glass-input !text-base resize-none"
                   />
                   <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-gray-500">
                     <StarOutlined className="text-accent-cyan" />
@@ -600,7 +707,7 @@ export default function Home(): React.ReactElement {
 
                   {/* Style (DALL-E 3 only) */}
                   {model === 'dall-e-3' && (
-                    <Col xs={24} sm={12} md={model !== 'dall-e-2' ? 6 : 8}>
+                    <Col xs={24} sm={12} md={6}>
                       <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
                         Style
                         <Tooltip
@@ -740,16 +847,21 @@ export default function Home(): React.ReactElement {
                           className="glass-card overflow-hidden !border-0"
                           cover={
                             result.url ? (
-                              <div className="relative overflow-hidden"
-                                  style={{ backgroundColor: 'var(--color-card-bg)' }}>
-                                <Image
+                              <div
+                                className="relative overflow-hidden cursor-pointer"
+                                style={{ backgroundColor: 'var(--color-card-bg)' }}
+                                onClick={() => openPreview(result.url!, index)}
+                              >
+                                <img
                                   src={result.url}
                                   alt={`Generated image ${index + 1}`}
-                                  preview
-                                  className="!w-full"
+                                  className="!w-full transition-transform duration-300 hover:scale-105"
                                   style={{ height: 280, objectFit: 'cover' }}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-background)] via-transparent to-transparent opacity-60" />
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
+                                  <ZoomInOutlined className="text-white text-4xl drop-shadow-lg" />
+                                </div>
                               </div>
                             ) : null
                           }
@@ -813,6 +925,98 @@ export default function Home(): React.ReactElement {
         </motion.footer>
       </div>
 
+      {/* Custom Image Preview Modal with Zoom */}
+      <Modal
+        open={previewImage !== null}
+        onCancel={closePreview}
+        footer={null}
+        centered
+        width="90vw"
+        style={{ maxWidth: '1600px' }}
+        className="image-preview-modal"
+        closeIcon={<span className="text-white text-2xl">✕</span>}
+        title={
+          <div className="flex items-center justify-between px-2">
+            <span className="text-white font-semibold">
+              Image #{previewImage?.index ?? 0 + 1}
+            </span>
+            <Space size="middle">
+              <Tooltip title="Zoom Out (-)">
+                <Button
+                  icon={<ZoomOutOutlined />}
+                  onClick={handleZoomOut}
+                  disabled={zoomLevel <= 0.5}
+                  className="!bg-white/10 !border-white/20 !text-white hover:!bg-white/20"
+                />
+              </Tooltip>
+              <span className="text-white min-w-[60px] text-center">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <Tooltip title="Zoom In (+)">
+                <Button
+                  icon={<ZoomInOutlined />}
+                  onClick={handleZoomIn}
+                  disabled={zoomLevel >= 5}
+                  className="!bg-white/10 !border-white/20 !text-white hover:!bg-white/20"
+                />
+              </Tooltip>
+              <Tooltip title="Reset Zoom (0)">
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={handleResetZoom}
+                  className="!bg-white/10 !border-white/20 !text-white hover:!bg-white/20"
+                />
+              </Tooltip>
+            </Space>
+          </div>
+        }
+        styles={{
+          header: {
+            background: 'rgba(15, 15, 25, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px 12px 0 0',
+          },
+        }}
+        rootClassName="image-preview-modal-root"
+        wrapClassName="image-preview-modal-wrap"
+      >
+        <div
+          className="relative overflow-hidden rounded-b-lg"
+          onWheel={handleWheel}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            height: '80vh',
+            cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+          }}
+        >
+          {previewImage && (
+            <motion.img
+              key={previewImage.url}
+              src={previewImage.url}
+              alt={`Preview ${previewImage.index + 1}`}
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              draggable={false}
+              className="max-w-max max-h-full"
+              style={{
+                transform: `scale(${zoomLevel}) translate(${imagePosition.x / zoomLevel}px, ${imagePosition.y / zoomLevel}px)`,
+                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                transformOrigin: 'center center',
+              }}
+            />
+          )}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md rounded-full px-4 py-2 text-white/70 text-xs">
+            Scroll to zoom • Drag to pan • Esc to close • +/- keys to zoom
+          </div>
+        </div>
+      </Modal>
+
       <style jsx global>{`
         .dark-dropdown .ant-select-dropdown {
           background: rgba(15, 15, 25, 0.95) !important;
@@ -854,6 +1058,20 @@ export default function Home(): React.ReactElement {
           -webkit-line-clamp: 3;
           -webkit-box-orient: vertical;
           overflow: hidden;
+        }
+
+        .image-preview-modal-root .ant-modal-content {
+          background: transparent;
+          box-shadow: none;
+          padding: 0;
+        }
+        .image-preview-modal-root .ant-modal-body {
+          padding: 0;
+          background: transparent;
+        }
+        .image-preview-modal-wrap .ant-modal-mask {
+          background: rgba(10, 10, 18, 0.95) !important;
+          backdrop-filter: blur(10px);
         }
       `}</style>
     </>

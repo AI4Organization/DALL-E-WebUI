@@ -12,7 +12,7 @@ Handles DALL-E 3 image generation using the OpenAI SDK.
 **Query Parameters**:
 - `p` (prompt): Text description for image generation
 - `n`: Number of images (note: DALL-E 3 only supports n=1)
-- `s` (size): Image size - "1024x1024", "1792x1024", "1024x1792", or "auto"
+- `s` (size): Image size - "1024x1024", "1792x1024", or "1024x1792"
 - `q` (quality): "standard" or "hd"
 - `st` (style): "vivid" or "natural" (required for dall-e-3)
 - `m` (model): Model identifier (selected from UI)
