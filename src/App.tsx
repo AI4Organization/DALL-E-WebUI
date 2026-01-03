@@ -1358,7 +1358,9 @@ export default function App(): React.ReactElement {
         <div
           className="relative preview-image-container"
           style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            backgroundColor: theme === 'dark' ? 'rgba(10, 10, 18, 0.3)' : 'rgba(248, 249, 252, 0.3)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
             height: '90vh',
             borderRadius: '12px',
             overflow: 'hidden',
@@ -1417,7 +1419,7 @@ export default function App(): React.ReactElement {
               maxWidth: '90vw',
               flexWrap: 'wrap',
               justifyContent: 'center',
-              backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.8)',
+              backgroundColor: 'rgba(0, 0, 0, 0.2)',
               border: 'none',
               outline: 'none',
             }}
