@@ -36,8 +36,8 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 - Includes model capabilities (size support, quality options)
 
 **Model Options:**
-- **OpenAI**: DALL-E 2, DALL-E 3
-- **OpenRouter**: Various provider models
+- **OpenAI**: DALL-E 2, DALL-E 3, GPT Image 1.5
+- **OpenRouter**: GLM-4.6v (Z-AI), Grok-4.1-Fast (X-AI)
 
 ---
 
@@ -45,17 +45,18 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 
 **Endpoint:** `POST /api/images`
 
-**Purpose:** Generates images using OpenAI's DALL-E 3 and GPT Image 1.5 APIs.
+**Purpose:** Generates images using OpenAI's DALL-E 3, DALL-E 2, and GPT Image 1.5 APIs.
 
 **Request Query Parameters:**
 ```typescript
 {
   p: string;          // Prompt (URL-encoded)
-  n: number;          // Number of images (1 for DALL-E 3, 1-10 for GPT Image 1.5)
-  q: string;          // Quality: 'standard'|'hd' (DALL-E 3) or 'auto'|'high'|'medium'|'low' (GPT Image 1.5)
+  n: number;          // Number of images
   s: string;          // Size: Image dimensions (model-dependent)
-  m: string;          // Model: 'dall-e-3' or 'gpt-image-1.5'
+  q?: string;         // Quality: 'standard'|'hd' (DALL-E 3) or 'auto'|'high'|'medium'|'low' (GPT Image 1.5)
+                      // Note: For DALL-E 2, quality parameter is accepted but NOT sent to API (DALL-E 2 ignores it)
   st?: string;        // Style: 'vivid'|'natural' (DALL-E 3 only)
+  m?: string;         // Model: 'dall-e-2', 'dall-e-3', or 'gpt-image-1.5'
   of?: string;        // Output format: 'png'|'jpeg'|'webp' (GPT Image 1.5 only)
   bg?: string;        // Background: 'auto'|'transparent'|'opaque' (GPT Image 1.5 only)
 }
@@ -71,37 +72,54 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 **OpenAIImageResult:**
 ```typescript
 {
-  url?: string;            // Image URL (DALL-E 3)
+  url?: string;            // Image URL (DALL-E 2, DALL-E 3)
   revised_prompt?: string; // DALL-E 3 revised prompt
   b64_json?: string;       // Base64 encoded image (GPT Image 1.5)
 }
 ```
 
 **Key Features:**
-- Validates input parameters
-- Handles both DALL-E 3 and GPT Image 1.5
+- Validates input parameters using `server/lib/validation.ts`
+- Handles DALL-E 2, DALL-E 3, and GPT Image 1.5
 - Supports OpenRouter API
-- Returns image URLs (DALL-E 3) or base64 data (GPT Image 1.5)
-- Error handling for API failures
+- Returns image URLs (DALL-E 2, DALL-E 3) or base64 data (GPT Image 1.5)
+- Comprehensive error handling for API failures
+- Quality parameter is only sent to API for DALL-E 3 and GPT Image 1.5 (DALL-E 2 ignores it)
 
 **Model-Specific Behavior:**
 
-| Feature | DALL-E 3 | GPT Image 1.5 |
-|---------|----------|---------------|
-| Max images | 1 | 10 |
-| Prompt limit | 4000 chars | 32000 chars |
-| Return format | `url` | `b64_json` (base64) |
-| Quality options | standard, hd | auto, high, medium, low |
-| Style options | vivid, natural | Not supported |
-| Size options | 1024x1024, 1024x1792, 1792x1024 | auto, 1024x1024, 1536x1024, 1024x1536 |
-| Output format | N/A | png, jpeg, webp |
-| Background | N/A | auto, transparent, opaque |
+| Feature | DALL-E 2 | DALL-E 3 | GPT Image 1.5 |
+|---------|----------|----------|---------------|
+| Max images | 10 | 1 | 10 |
+| Prompt limit | 1000 chars | 4000 chars | 32000 chars |
+| Return format | `url` | `url` | `b64_json` (base64) |
+| Quality options | N/A (API ignores) | standard, hd | auto, high, medium, low |
+| Style options | Not supported | vivid, natural | Not supported |
+| Sizes | 256x256, 512x512, 1024x1024 | 1024x1024, 1024x1792, 1792x1024 | auto, 1024x1024, 1536x1024, 1024x1536 |
+| Output format | N/A | N/A | png, jpeg, webp |
+| Background | N/A | N/A | auto, transparent, opaque |
 
 **Validation Rules:**
 - DALL-E 3 only supports `n=1`
+- DALL-E 2 supports `n=1` to `n=10`
+- GPT Image 1.5 supports `n=1` to `n=10`
+- Style is **required** for DALL-E 3
 - Size validation per model
 - Quality/Style only for DALL-E 3
+- Quality parameter not sent to API for DALL-E 2 (API ignores it)
 - Output format/Background only for GPT Image 1.5
+
+**Error Handling:**
+
+| Status Code | Error Type | Description |
+|-------------|------------|-------------|
+| 400 | Missing parameters | Required params not provided |
+| 400 | Invalid parameters | Parameter validation failed |
+| 400 | Invalid request | OpenAI API rejected request |
+| 401 | Authentication failed | Invalid API key |
+| 403 | Model not found | Model not available for API key |
+| 429 | Rate limit exceeded | API rate limit reached |
+| 500 | API failure | OpenAI API error |
 
 ---
 
@@ -148,12 +166,14 @@ All routes use the centralized error handler from `middleware/error.ts`:
 
 - **400 Bad Request** - Invalid input parameters
 - **401 Unauthorized** - Missing/invalid API key
+- **403 Forbidden** - Model not available for API key
+- **429 Too Many Requests** - Rate limit exceeded
 - **500 Internal Server Error** - API or processing failures
 
 ## Dependencies
 
 - **express** - Router and request handling
-- **openai** - OpenAI SDK for image generation
+- **openai** - OpenAI SDK for image generation (via `../lib/openai-client.ts`)
 - **sharp** - Image processing and format conversion
 - **axios** - HTTP client for fetching images
 - **../../types** - Shared TypeScript interfaces
@@ -180,6 +200,35 @@ router.post('/', async (req, res, next) => {
 });
 ```
 
+### Model-Specific Parameter Building
+
+```typescript
+// Build request parameters based on model
+const requestParams: any = {
+  prompt: prompt as string,
+  n: Number(n),
+  size: size as ImageSize,
+  model: selectedModel as string,
+};
+
+// Add quality parameter for DALL-E 3 and GPT Image 1.5
+// DALL-E 2 does not support quality parameter (always standard)
+if (quality && selectedModel !== 'dall-e-2') {
+  requestParams.quality = quality;
+}
+
+// Add style for DALL-E 3 only
+if (selectedModel === 'dall-e-3' && style) {
+  requestParams.style = style as ImageStyle;
+}
+
+// Add GPT Image 1.5 specific parameters
+if (selectedModel === 'gpt-image-1.5') {
+  if (output_format) requestParams.output_format = output_format;
+  if (background) requestParams.background = background;
+}
+```
+
 ### Error Responses
 
 ```typescript
@@ -188,7 +237,27 @@ res.json({ result: data });
 
 // Error
 res.status(400).json({ error: 'Error message' });
+
+// Error with details
+res.status(400).json({
+  error: 'Error message',
+  details: ['Detail 1', 'Detail 2']
+});
 ```
+
+## API Key Configuration
+
+The OpenAI client is initialized in `../lib/openai-client.ts`:
+
+```typescript
+import openai from '../lib/openai-client';
+
+const response = await openai.images.generate(requestParams);
+```
+
+The client uses:
+- `OPENAI_API_KEY` from environment
+- `OPENAI_BASE_URL` from environment
 
 ## Notes
 
@@ -197,3 +266,4 @@ res.status(400).json({ error: 'Error message' });
 - Sharp handles all image processing server-side
 - Base64 encoding used for image transport
 - CORS configured for frontend access
+- DALL-E 2 quality parameter is accepted but not sent to API (API ignores it)

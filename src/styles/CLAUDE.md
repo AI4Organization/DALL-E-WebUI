@@ -5,7 +5,7 @@ This directory contains global CSS styles and Tailwind CSS configuration for the
 ## Structure
 
 ```
-styles/
+src/styles/
   globals.css        # Global styles with Tailwind CSS import and theme variables
   CLAUDE.md          # This file
 ```

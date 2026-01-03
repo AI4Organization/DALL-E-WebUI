@@ -23,7 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DALL-E 3 Web UI is a **decoupled frontend/backend application** that provides a web interface for generating images using OpenAI's DALL-E 3 and GPT Image 1.5 APIs. It allows users to input prompts, configure generation parameters (quality, size, style, output format, background), and download generated images in various formats.
+DALL-E 3 Web UI is a **decoupled frontend/backend application** that provides a web interface for generating images using OpenAI's DALL-E 3, DALL-E 2, and GPT Image 1.5 APIs. It allows users to input prompts, configure generation parameters (quality, size, style, output format, background), and download generated images in various formats.
 
 **Architecture**:
 - **Frontend**: Rsbuild (Rspack-based) SPA with React 19
@@ -196,18 +196,23 @@ interface OpenAIImageResult {
   b64_json?: string;
 }
 
-// Image generation - DALL-E 3
+// Image generation - DALL-E 3 and DALL-E 2
 type ImageQuality = 'standard' | 'hd';
 type ImageStyle = 'vivid' | 'natural';
+
+// Image generation - DALL-E 2
+type DALLE2ImageQuality = 'standard';
 
 // Image generation - GPT Image 1.5
 type GPTImageQuality = 'auto' | 'high' | 'medium' | 'low';
 type GPTImageOutputFormat = 'png' | 'jpeg' | 'webp';
 type GPTImageBackground = 'auto' | 'transparent' | 'opaque';
 
-// Shared sizes (DALL-E 3 and GPT Image 1.5)
+// All sizes across models
 type ImageSize =
-  | '1024x1024'    // Common square size
+  | '1024x1024'    // Common square size (all models)
+  | '256x256'      // DALL-E 2 only
+  | '512x512'      // DALL-E 2 only
   | '1024x1792'    // DALL-E 3 portrait
   | '1792x1024'    // DALL-E 3 landscape
   | 'auto'         // GPT Image 1.5 auto size
@@ -234,6 +239,16 @@ interface ConfigApiResponse { availableModels: ModelOption[]; baseURL: string; }
 - Sizes: 1024x1024 (square), 1024x1792 (portrait), 1792x1024 (landscape)
 - Default size: "1024x1024" (Square)
 
+**DALL-E 2:**
+- Supports `n=1` to `n=10` (multiple images per request)
+- Prompt character limit: **1000 characters**
+- Quality options: standard only (UI shows dropdown with single option)
+- No style option (not supported by API)
+- Sizes: 256x256, 512x512, 1024x1024 (all square)
+- Default size: "1024x1024" (Square)
+- Returns image URLs (not base64)
+- Quality parameter is NOT sent to API (DALL-E 2 ignores it)
+
 **GPT Image 1.5:**
 - Supports `n=1` to `n=10` (multiple images per request)
 - Prompt character limit: **32000 characters**
@@ -253,8 +268,9 @@ interface ConfigApiResponse { availableModels: ModelOption[]; baseURL: string; }
 - Dark/light theme toggle with animated sun/moon icons in the top-right corner
 - Theme preference is saved to localStorage and persists across sessions
 - System preference detection sets initial theme based on user's OS setting
-- Prompt character limit is dynamic based on selected model (enforced via maxLength attribute)
-- Image count limit is dynamic based on selected model (1 for DALL-E 3, 10 for GPT Image 1.5)
+- Prompt character limit is dynamic based on selected model (1000 for DALL-E 2, 4000 for DALL-E 3, 32000 for GPT Image 1.5)
+- Image count limit is dynamic based on selected model (10 for DALL-E 2, 1 for DALL-E 3, 10 for GPT Image 1.5)
+- Quality dropdown shows for all models, but DALL-E 2 only has "standard" option (parameter not sent to API)
 
 ## Migration History
 

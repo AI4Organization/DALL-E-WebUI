@@ -4,26 +4,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with ba
 
 ## Purpose
 
-This directory contains server-side utility modules for configuration management and input validation. These are shared across API routes.
+This directory contains server-side utility modules for configuration management, input validation, and OpenAI client initialization. These are shared across API routes.
 
 ## File Structure
 
 ```
 server/lib/
-├── config.ts      # Configuration management and model options
-└── validation.ts  # Type-safe input validation
+├── config.ts          # Configuration management and model options
+├── validation.ts      # Type-safe input validation
+└── openai-client.ts   # OpenAI SDK client initialization
 ```
 
 ## Modules
 
 ### `config.ts` - Configuration Management
 
-**Purpose:** Manages server configuration and provides model options based on the OpenAI base URL.
+**Purpose:** Manages server configuration with caching and provides model options based on the OpenAI base URL.
+
+#### Constants
+
+##### `BASE_URL_MODELS`
+Maps base URLs to available model options.
+
+```typescript
+const BASE_URL_MODELS: Record<string, ModelOption[]> = {
+  'https://api.openai.com/v1': [
+    { value: 'dall-e-3', label: 'DALL-E 3' },
+    { value: 'dall-e-2', label: 'DALL-E 2' },
+    { value: 'gpt-image-1.5', label: 'GPT Image 1.5' }
+  ],
+  'https://openrouter.ai/api/v1': [
+    { value: 'z-ai/glm-4.6v', label: 'GLM-4.6v (Z-AI)' },
+    { value: 'x-ai/grok-4.1-fast', label: 'Grok-4.1-Fast (X-AI)' }
+  ]
+};
+```
 
 #### Functions
 
 ##### `getServerConfig()`
-Gets the current server configuration with validation.
+Gets the current server configuration with caching.
 
 ```typescript
 function getServerConfig(): ServerConfig
@@ -40,134 +60,222 @@ function getServerConfig(): ServerConfig
 ```
 
 **Features:**
-- Validates `OPENAI_API_KEY` presence
-- Validates `OPENAI_BASE_URL` presence
-- Detects API provider (OpenAI vs OpenRouter)
-- Returns appropriate model options
+- Caches configuration after first call
+- Validates environment variables via `validateEnvVars()`
+- Returns appropriate model options based on `OPENAI_BASE_URL`
 
-**Model Detection:**
-
-| Base URL | Provider | Models |
-|----------|----------|--------|
-| `api.openai.com` | OpenAI | DALL-E 3, GPT Image 1.5 |
-| `openrouter.ai` | OpenRouter | Various provider models |
-| Other | Custom | Custom models |
-
-##### `getModelOptions(baseURL: string)`
-Gets available models for a given base URL.
+##### `resetConfigCache()`
+Clears the cached configuration (useful for testing or config changes).
 
 ```typescript
-function getModelOptions(baseURL: string): ModelOption[]
+function resetConfigCache(): void
 ```
 
-**OpenAI Models:**
-- DALL-E 3 (`dall-e-3`)
-- GPT Image 1.5 (`gpt-image-1.5`)
+##### `getAvailableModelsForBaseURL(baseURL: string)`
+Gets available models for a specific base URL.
 
-**OpenRouter Models:**
-- Various provider-specific DALL-E models
+```typescript
+function getAvailableModelsForBaseURL(baseURL: string): ModelOption[]
+```
 
 ---
 
 ### `validation.ts` - Input Validation
 
-**Purpose:** Provides type-safe validation for API request parameters.
+**Purpose:** Provides type-safe validation for API request parameters, including model-specific constraints for DALL-E 2, DALL-E 3, and GPT Image 1.5.
 
-#### Types
+#### Type Definitions
 
-##### `RequestBody` Interface
+##### `ValidModel`
+Union type of all supported models.
+
 ```typescript
-interface RequestBody {
-  prompt?: string;
-  model?: string;
-  quality?: ImageQuality | GPTImageQuality;
-  size?: ImageSize;
-  style?: ImageStyle;
-  output_format?: GPTImageOutputFormat;
-  background?: GPTImageBackground;
+type ValidModel = 'dall-e-3' | 'dall-e-2' | 'gpt-image-1.5' | 'z-ai/glm-4.6v' | 'x-ai/grok-4.1-fast';
+```
+
+##### `GPTImage15Params`
+GPT Image 1.5 specific parameters.
+
+```typescript
+interface GPTImage15Params {
+  quality?: string;
+  output_format?: string;
+  background?: string;
+  n?: number;
+  size?: string;
+}
+```
+
+##### `DALLE2Params`
+DALL-E 2 specific parameters.
+
+```typescript
+interface DALLE2Params {
+  quality?: string;
+  size?: string;
   n?: number;
 }
 ```
 
+#### Constants
+
+| Constant | Values | Purpose |
+|----------|--------|---------|
+| `BASE_URL_MODELS` | Maps URLs to valid models | Model validation |
+| `VALID_STYLES` | `['vivid', 'natural']` | DALL-E 3 style options |
+| `DALL_E_2_SIZES` | `['256x256', '512x512', '1024x1024']` | DALL-E 2 sizes |
+| `DALL_E_2_QUALITIES` | `['standard']` | DALL-E 2 quality |
+| `DALL_E_3_SIZES` | `['1024x1024', '1024x1792', '1792x1024']` | DALL-E 3 sizes |
+| `GPT_IMAGE_1_5_QUALITIES` | `['auto', 'high', 'medium', 'low']` | GPT Image 1.5 quality |
+| `GPT_IMAGE_1_5_OUTPUT_FORMATS` | `['png', 'jpeg', 'webp']` | GPT Image 1.5 formats |
+| `GPT_IMAGE_1_5_BACKGROUNDS` | `['auto', 'transparent', 'opaque']` | GPT Image 1.5 backgrounds |
+| `GPT_IMAGE_1_5_SIZES` | `['auto', '1024x1024', '1536x1024', '1024x1536']` | GPT Image 1.5 sizes |
+
 #### Functions
 
-##### `validateRequestBody(body: RequestBody)`
-Validates image generation request body.
+##### Environment Validation
+
+###### `validateEnvVars()`
+Validates required environment variables.
 
 ```typescript
-function validateRequestBody(body: RequestBody): ValidationResult
+function validateEnvVars(): ValidationResult
 ```
 
-**Validation Rules:**
+**Checks:**
+- `OPENAI_API_KEY` is present
+- `OPENAI_BASE_URL` is present and recognized
 
-| Field | Required | Validation |
-|-------|----------|------------|
-| `prompt` | Yes | Non-empty string, 1-4000 chars (DALL-E 3) or 1-32000 chars (GPT Image 1.5) |
-| `model` | Yes | Valid model identifier |
-| `quality` | No | DALL-E 3: 'standard' or 'hd'; GPT Image 1.5: 'auto', 'high', 'medium', 'low' |
-| `size` | No | Valid size for model |
-| `style` | No | 'vivid' or 'natural' (DALL-E 3 only) |
-| `output_format` | No | 'png', 'jpeg', 'webp' (GPT Image 1.5 only) |
-| `background` | No | 'auto', 'transparent', 'opaque' (GPT Image 1.5 only) |
-| `n` | No | Positive integer, max 1 for DALL-E 3, max 10 for GPT Image 1.5 |
+##### Model Validation
 
-**Returns:**
-```typescript
-{
-  success: boolean;
-  error?: string;  // Error message if validation fails
-}
-```
-
-**Error Messages:**
-- `"Prompt is required and must be between 1 and 4000 characters."` (DALL-E 3)
-- `"Prompt is required and must be between 1 and 32000 characters."` (GPT Image 1.5)
-- `"Model is required."`
-- `"Invalid quality value. Must be 'standard' or 'hd'."` (DALL-E 3)
-- `"Invalid quality value. Must be 'auto', 'high', 'medium', or 'low'."` (GPT Image 1.5)
-- `"Invalid size value."`
-- `"Invalid style value. Must be 'vivid' or 'natural'."`
-- `"Invalid output_format value. Must be 'png', 'jpeg', or 'webp'."` (GPT Image 1.5)
-- `"Invalid background value. Must be 'auto', 'transparent', or 'opaque'."` (GPT Image 1.5)
-- `"Number of images must be a positive integer (max 1 for DALL-E 3, max 10 for GPT Image 1.5)."`
-
-##### `validateModelCompatibility(params: RequestBody)`
-Validates that parameters are compatible with the selected model.
+###### `validateModelForBaseURL(model: string, baseURL: string)`
+Validates that a model is available for the given base URL.
 
 ```typescript
-function validateModelCompatibility(params: RequestBody): ValidationResult
+function validateModelForBaseURL(model: string, baseURL: string): ValidationResult
 ```
 
-**Compatibility Rules:**
-
-| Model | Size Support | Quality | Style | Output Format | Background | Max Images |
-|-------|-------------|---------|-------|---------------|------------|------------|
-| DALL-E 3 | 1024x1024, 1024x1792, 1792x1024 | standard/hd | vivid/natural | No | No | 1 |
-| GPT Image 1.5 | auto, 1024x1024, 1536x1024, 1024x1536 | auto/high/medium/low | No | png/jpeg/webp | auto/transparent/opaque | 10 |
-
-**DALL-E 3 Constraints:**
-- Only supports `n=1` (single image)
-- Size validation: 1024x1024 (square), 1024x1792 (portrait), 1792x1024 (landscape)
-- Prompt limit: 4000 characters
-
-**GPT Image 1.5 Constraints:**
-- Supports `n=1` to `n=10` (multiple images)
-- Size validation: auto, 1024x1024 (square), 1536x1024 (landscape), 1024x1536 (portrait)
-- Prompt limit: 32000 characters
-- Always returns base64-encoded images (b64_json)
-
-##### `isValidImageSize(size: string, model: string)`
-Checks if a size is valid for a model.
+###### `validateStyleForModel(style: string | undefined, model: string)`
+Validates style parameter (required for DALL-E 3).
 
 ```typescript
-function isValidImageSize(size: string, model: string): boolean
+function validateStyleForModel(style: string | undefined, model: string): ValidationResult
 ```
 
-**Returns:** `true` if size is valid for the model
+##### GPT Image 1.5 Validation
+
+###### `validateGPTImage15Params(params: GPTImage15Params)`
+Validates GPT Image 1.5 specific parameters.
+
+```typescript
+function validateGPTImage15Params(params: GPTImage15Params): ValidationResult
+```
+
+**Validates:**
+- `quality`: auto, high, medium, low
+- `output_format`: png, jpeg, webp
+- `background`: auto, transparent, opaque
+- `n`: 1-10 images
+- `size`: auto, 1024x1024, 1536x1024, 1024x1536
+
+##### DALL-E 2 Validation
+
+###### `validateDALLE2Params(params: DALLE2Params)`
+Validates DALL-E 2 specific parameters.
+
+```typescript
+function validateDALLE2Params(params: DALLE2Params): ValidationResult
+```
+
+**Validates:**
+- `quality`: standard only
+- `size`: 256x256, 512x512, 1024x1024
+- `n`: 1-10 images
+
+##### Model-Specific Helpers
+
+###### `getPromptLimitForModel(model: string)`
+Returns the maximum prompt character limit for a model.
+
+```typescript
+function getPromptLimitForModel(model: string): number
+```
+
+| Model | Limit |
+|-------|-------|
+| DALL-E 2 | 1000 |
+| DALL-E 3 | 4000 |
+| GPT Image 1.5 | 32000 |
+
+###### `getMaxImagesForModel(model: string)`
+Returns the maximum number of images per request.
+
+```typescript
+function getMaxImagesForModel(model: string): number
+```
+
+| Model | Max Images |
+|-------|------------|
+| DALL-E 2 | 10 |
+| DALL-E 3 | 1 |
+| GPT Image 1.5 | 10 |
+
+###### `getValidSizesForModel(model: string)`
+Returns valid image sizes for a model.
+
+```typescript
+function getValidSizesForModel(model: string): readonly string[]
+```
+
+###### `getDefaultSizeForModel(model: string)`
+Returns the default size for a model.
+
+```typescript
+function getDefaultSizeForModel(model: string): string
+```
+
+| Model | Default |
+|-------|---------|
+| DALL-E 2 | 1024x1024 |
+| DALL-E 3 | 1792x1024 (landscape) |
+| GPT Image 1.5 | 1536x1024 (landscape) |
+
+###### `getBaseURLModels()`
+Returns the `BASE_URL_MODELS` mapping.
+
+```typescript
+function getBaseURLModels(): Record<string, ValidModel[]>
+```
+
+---
+
+### `openai-client.ts` - OpenAI Client
+
+**Purpose:** Initializes and exports the OpenAI SDK client for making API requests.
+
+#### Exports
+
+```typescript
+export const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.OPENAI_BASE_URL
+});
+```
+
+**Usage:**
+```typescript
+import { openai } from '../lib/openai-client';
+
+const response = await openai.images.generate({
+  model: 'dall-e-3',
+  prompt: 'A beautiful sunset'
+});
+```
 
 ## Dependencies
 
-- **../../types** - Shared TypeScript interfaces
+- **../../types** - Shared TypeScript interfaces (`ServerConfig`, `ModelOption`, `ValidationResult`, `ImageStyle`)
+- **openai** - OpenAI SDK (imported in `openai-client.ts`)
 - **process.env** - Environment variables
 
 ## Usage Examples
@@ -175,53 +283,76 @@ function isValidImageSize(size: string, model: string): boolean
 ### Configuration Management
 
 ```typescript
-import { getServerConfig } from '../lib/config';
+import { getServerConfig, resetConfigCache } from '../lib/config';
 
-// In API route
+// Get server configuration
 const config = getServerConfig();
 if (!config.isValid) {
-  return res.status(500).json({
-    error: 'Server configuration error',
-    details: config.errors
-  });
+  console.error('Configuration errors:', config.errors);
+}
+
+// Reset cache (e.g., after environment change)
+resetConfigCache();
+```
+
+### Environment Validation
+
+```typescript
+import { validateEnvVars } from '../lib/validation';
+
+const result = validateEnvVars();
+if (!result.valid) {
+  console.error('Validation errors:', result.errors);
 }
 ```
 
-### Request Validation
+### Model-Specific Validation
 
 ```typescript
-import { validateRequestBody } from '../lib/validation';
+import {
+  validateGPTImage15Params,
+  validateDALLE2Params,
+  getPromptLimitForModel,
+  getMaxImagesForModel
+} from '../lib/validation';
 
-// In API route
-const validationResult = validateRequestBody(req.body);
-if (!validationResult.success) {
-  return res.status(400).json({ error: validationResult.error });
-}
-```
-
-### Model Compatibility Check
-
-```typescript
-import { validateModelCompatibility } from '../lib/validation';
-
-const compatibilityCheck = validateModelCompatibility({
-  model: 'dall-e-3',
-  size: '256x256',  // Invalid for DALL-E 3
-  n: 4  // Invalid, DALL-E 3 only supports n=1
+// GPT Image 1.5 validation
+const gptValidation = validateGPTImage15Params({
+  quality: 'high',
+  n: 5
 });
 
-if (!compatibilityCheck.valid) {
-  return res.status(400).json({
-    error: compatibilityCheck.error,
-    details: compatibilityCheck.errors
-  });
-}
+// DALL-E 2 validation
+const dalle2Validation = validateDALLE2Params({
+  size: '512x512',
+  n: 4
+});
+
+// Get model limits
+const promptLimit = getPromptLimitForModel('dall-e-3'); // 4000
+const maxImages = getMaxImagesForModel('dall-e-3');    // 1
 ```
+
+## Model Comparison
+
+| Feature | DALL-E 2 | DALL-E 3 | GPT Image 1.5 |
+|---------|----------|----------|---------------|
+| Max images | 10 | 1 | 10 |
+| Prompt limit | 1000 | 4000 | 32000 |
+| Return format | URL | URL | base64 (b64_json) |
+| Quality options | standard | standard, hd | auto, high, medium, low |
+| Style options | None | vivid, natural | None |
+| Sizes | 256x256, 512x512, 1024x1024 | 1024x1024, 1024x1792, 1792x1024 | auto, 1024x1024, 1536x1024, 1024x1536 |
+| Output format | N/A | N/A | png, jpeg, webp |
+| Background | N/A | N/A | auto, transparent, opaque |
 
 ## Notes
 
 - All validation is synchronous
 - Returns detailed error messages for debugging
 - Type-safe with TypeScript strict mode
-- No external dependencies (pure TypeScript)
+- No external dependencies (pure TypeScript, except OpenAI SDK)
 - Used by all API routes in `server/routes/`
+- Configuration is cached for performance
+- GPT Image 1.5 always returns base64-encoded images
+- DALL-E 3 always returns a single image (n=1)
