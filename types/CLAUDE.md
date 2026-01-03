@@ -74,11 +74,23 @@ type GPTImageQuality = 'auto' | 'high' | 'medium' | 'low';
 - **low**: Lowest quality
 
 #### `GPTImageOutputFormat`
-Output format setting for GPT Image 1.5.
+Output format setting for GPT Image 1.5 (API-supported formats).
 
 ```typescript
 type GPTImageOutputFormat = 'png' | 'jpeg' | 'webp';
 ```
+
+#### `ImageOutputFormat`
+Universal output format setting for all models (API-supported formats only).
+
+```typescript
+type ImageOutputFormat = 'webp' | 'png' | 'jpeg';
+```
+
+**Usage:**
+- Default format: `webp`
+- For DALL-E 2/3: Format is applied during download via backend conversion
+- For GPT Image 1.5: Format is sent to API as `response_format` parameter
 
 #### `GPTImageBackground`
 Background setting for GPT Image 1.5.

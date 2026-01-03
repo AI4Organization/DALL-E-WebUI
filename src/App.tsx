@@ -50,6 +50,7 @@ import type {
   ImageGenerationStatus,
   GPTImageQuality,
   GPTImageOutputFormat,
+  ImageOutputFormat,
   GPTImageBackground,
 } from '../types';
 import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../types';
@@ -159,19 +160,11 @@ const STYLE_OPTIONS: { value: ImageStyle; label: string }[] = [
   { value: 'natural', label: 'Natural' },
 ];
 
-const FORMAT_OPTIONS: { value: DownloadFormat; label: string }[] = [
+// Universal output format options for all models (API-supported formats only)
+const OUTPUT_FORMAT_OPTIONS: { value: ImageOutputFormat; label: string }[] = [
   { value: 'webp', label: 'WebP' },
-  { value: 'png', label: 'PNG' },
-  { value: 'jpg', label: 'JPG' },
-  { value: 'gif', label: 'GIF' },
-  { value: 'avif', label: 'AVIF' },
-];
-
-// GPT Image 1.5 specific output format options (for API request)
-const GPT_IMAGE_1_5_OUTPUT_FORMAT_OPTIONS: { value: GPTImageOutputFormat; label: string }[] = [
   { value: 'png', label: 'PNG' },
   { value: 'jpeg', label: 'JPEG' },
-  { value: 'webp', label: 'WebP' },
 ];
 
 // GPT Image 1.5 background options
@@ -314,8 +307,7 @@ export default function App(): React.ReactElement {
   const [quality, setQuality] = useState<ImageQuality | GPTImageQuality>('standard');
   const [size, setSize] = useState<ImageSize>('1024x1024');
   const [style, setStyle] = useState<ImageStyle>('vivid');
-  const [type, setType] = useState<DownloadFormat>('webp');
-  const [outputFormat, setOutputFormat] = useState<GPTImageOutputFormat>('png');
+  const [outputFormat, setOutputFormat] = useState<ImageOutputFormat>('webp');
   const [background, setBackground] = useState<GPTImageBackground>('auto');
 
   // Image preview state
@@ -602,25 +594,23 @@ export default function App(): React.ReactElement {
     }
   }, [model, prompt, number, quality, size, style, outputFormat, background]);
 
-  const download = useCallback(async (url: string): Promise<void> => {
+  const download = useCallback(async (imageUrl: string): Promise<void> => {
     try {
       // Check if it's a base64 data URL (from GPT Image 1.5)
-      if (url.startsWith('data:')) {
-        // Handle base64 image download directly in browser
+      if (imageUrl.startsWith('data:')) {
+        // For GPT Image 1.5, the API returns the image in the selected format
+        // Download directly in browser
         const link = document.createElement('a');
-        link.href = url;
-        // Extract file extension from mime type or default to PNG
-        const mimeMatch = url.match(/^data:image\/(\w+);base64,/);
-        const extension = mimeMatch ? (mimeMatch[1] === 'jpeg' ? 'jpg' : mimeMatch[1]) : 'png';
-        link.download = `${prompt}.${extension}`;
+        link.href = imageUrl;
+        link.download = `${prompt}.${outputFormat}`;
         link.click();
         toast.success('Image downloaded successfully');
       } else {
-        // Handle regular URL (from DALL-E 3) - use backend for format conversion
-        const res = await axios.post(`${process.env.API_BASE_URL}/api/download`, { url, type });
+        // For DALL-E 2/3 (URL images), use backend for format conversion
+        const res = await axios.post(`${process.env.API_BASE_URL}/api/download`, { url: imageUrl, type: outputFormat as DownloadFormat });
         const link = document.createElement('a');
         link.href = res.data.result;
-        link.download = `${prompt}.${type}`;
+        link.download = `${prompt}.${outputFormat}`;
         link.click();
         toast.success('Image downloaded successfully');
       }
@@ -628,7 +618,7 @@ export default function App(): React.ReactElement {
       console.error('Download error:', err);
       toast.error('Failed to download image');
     }
-  }, [prompt, type]);
+  }, [prompt, outputFormat]);
 
   // Retry a single failed image generation
   const retryImage = useCallback(async (id: number): Promise<void> => {
@@ -1025,25 +1015,8 @@ export default function App(): React.ReactElement {
                     </Tooltip>
                   </Col>
 
-                  {/* Format (Download format) */}
-                  <Col xs={24} sm={12} md={6}>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Download Format
-                    </label>
-                    <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
-                      <Select<DownloadFormat>
-                        value={type}
-                        onChange={setType}
-                        options={FORMAT_OPTIONS}
-                        disabled={isGenerationInProgress}
-                        className="w-full"
-                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                      />
-                    </Tooltip>
-                  </Col>
-
                   {/* Number of Images */}
-                  <Col xs={24} sm={12} md={model === 'gpt-image-1.5' ? 6 : 12}>
+                  <Col xs={24} sm={12} md={model === 'gpt-image-1.5' ? 6 : 8}>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Number of Images
                     </label>
@@ -1087,27 +1060,25 @@ export default function App(): React.ReactElement {
                     </Col>
                   )}
 
-                  {/* Output Format (GPT Image 1.5 only) */}
-                  {model === 'gpt-image-1.5' && (
-                    <Col xs={24} sm={12} md={6}>
-                      <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                        Output Format
-                        <Tooltip title="Format of the generated image returned by the API">
-                          <InfoCircleOutlined className="text-accent-cyan cursor-help" />
-                        </Tooltip>
-                      </label>
-                      <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
-                        <Select<GPTImageOutputFormat>
-                          value={outputFormat}
-                          onChange={setOutputFormat}
-                          options={GPT_IMAGE_1_5_OUTPUT_FORMAT_OPTIONS}
-                          disabled={isGenerationInProgress}
-                          className="w-full"
-                          popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                        />
+                  {/* Output Format (All models) */}
+                  <Col xs={24} sm={12} md={model === 'gpt-image-1.5' ? 6 : 4}>
+                    <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      Output Format
+                      <Tooltip title="Format of the generated image">
+                        <InfoCircleOutlined className="text-accent-cyan cursor-help" />
                       </Tooltip>
-                    </Col>
-                  )}
+                    </label>
+                    <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
+                      <Select<ImageOutputFormat>
+                        value={outputFormat}
+                        onChange={setOutputFormat}
+                        options={OUTPUT_FORMAT_OPTIONS}
+                        disabled={isGenerationInProgress}
+                        className="w-full"
+                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
+                      />
+                    </Tooltip>
+                  </Col>
 
                   {/* Background (GPT Image 1.5 only) */}
                   {model === 'gpt-image-1.5' && (

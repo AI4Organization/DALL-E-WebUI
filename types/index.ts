@@ -20,8 +20,11 @@ export type ImageQuality = 'standard' | 'hd';
 // GPT Image 1.5 quality options
 export type GPTImageQuality = 'auto' | 'high' | 'medium' | 'low';
 
-// GPT Image 1.5 output format options
+// GPT Image 1.5 output format options (API-supported)
 export type GPTImageOutputFormat = 'png' | 'jpeg' | 'webp';
+
+// Universal output format for all models (API-supported only)
+export type ImageOutputFormat = 'webp' | 'png' | 'jpeg';
 
 // GPT Image 1.5 background options
 export type GPTImageBackground = 'auto' | 'transparent' | 'opaque';

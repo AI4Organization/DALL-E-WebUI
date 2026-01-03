@@ -44,6 +44,11 @@ Primary UI component containing:
 - Image results display with enhanced preview modal
 - Progressive image generation with progress tracking
 
+**Format Selection:**
+- **Unified Output Format dropdown** (all models): WebP (default), PNG, JPEG
+  - For DALL-E 2/3: Format is applied during download via backend conversion
+  - For GPT Image 1.5: Format is sent to API as `response_format` parameter
+
 **Key Features:**
 - Uses `API_BASE_URL` environment variable for API calls
 - Implements character count validation (dynamic based on model: 1000 for DALL-E 2, 4000 for DALL-E 3, 32000 for GPT Image 1.5)
@@ -67,9 +72,12 @@ Primary UI component containing:
   - Image navigation: Arrow keys or swipe gestures
   - Keyboard shortcuts: ESC (close), 0 (reset zoom), F (cycle fit mode)
 - Supports both image URL format (DALL-E 2, DALL-E 3) and base64 format (GPT Image 1.5)
-- Downloads base64 images directly in browser, URLs via backend conversion
+- **Download behavior:**
+  - DALL-E 2/3: URL images are converted to selected format via backend `/api/download`
+  - GPT Image 1.5: Base64 images are downloaded directly (already in selected format)
 - Quality dropdown shows for all models (DALL-E 2 shows only "standard" option)
 - Quality parameter is only sent to API for DALL-E 3 and GPT Image 1.5 (DALL-E 2 ignores it)
+- **Output Format dropdown** shows for all models (WebP, PNG, JPEG)
 - **Visual Effects:**
   - Floating animated blob backgrounds
   - Glass morphism cards with backdrop blur
