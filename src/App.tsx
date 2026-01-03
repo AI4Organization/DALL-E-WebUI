@@ -1408,47 +1408,53 @@ export default function App(): React.ReactElement {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          {previewImage && (
-            <motion.div
-              key={previewImage.url}
-              className="preview-image-wrapper"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '100%',
-                width: '100%',
-              }}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.2 }}
-            >
-              <motion.img
-                src={previewImage.url}
-                alt={`Preview ${currentNavIndex + 1}`}
-                draggable={false}
-                className="preview-image"
+          {previewImage && navigationImages[currentNavIndex] && (() => {
+            const currentImage = navigationImages[currentNavIndex];
+            const currentImageUrl = getImageDisplayUrl(currentImage);
+            return currentImageUrl ? (
+              <motion.div
+                key={currentImageUrl}
+                className="preview-image-wrapper"
                 style={{
-                  maxWidth: fitMode === 'fill' ? '100%' : '100%',
-                  maxHeight: fitMode === 'fill' ? '100%' : '100%',
-                  objectFit: fitMode === 'contain' ? 'contain' : fitMode === 'fill' ? 'fill' : 'none',
-                  transform: `scale(${zoomLevel / 100}) translate(${panPosition.x / (zoomLevel / 100)}px, ${panPosition.y / (zoomLevel / 100)}px)`,
-                  transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-                  userSelect: 'none',
-                  WebkitUserDrag: 'none' as const,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  width: '100%',
                 }}
-                onDoubleClick={handleZoomReset}
-              />
-            </motion.div>
-          )}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2 }}
+              >
+                <motion.img
+                  src={currentImageUrl}
+                  alt={`Preview ${currentNavIndex + 1}`}
+                  draggable={false}
+                  className="preview-image"
+                  style={{
+                    maxWidth: fitMode === 'fill' ? '100%' : '100%',
+                    maxHeight: fitMode === 'fill' ? '100%' : '100%',
+                    objectFit: fitMode === 'contain' ? 'contain' : fitMode === 'fill' ? 'fill' : 'none',
+                    transform: `scale(${zoomLevel / 100}) translate(${panPosition.x / (zoomLevel / 100)}px, ${panPosition.y / (zoomLevel / 100)}px)`,
+                    transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                    userSelect: 'none',
+                    WebkitUserDrag: 'none' as const,
+                  }}
+                  onDoubleClick={handleZoomReset}
+                />
+              </motion.div>
+            ) : null;
+          })()}
 
           {/* Floating Control Bar - Always Visible */}
           <div
-            className="preview-floating-controls absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/10 shadow-2xl"
+            className="preview-floating-controls absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 rounded-2xl backdrop-blur-xl border shadow-2xl"
             style={{
               maxWidth: '90vw',
               flexWrap: 'wrap',
               justifyContent: 'center',
+              backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.8)',
+              borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
             }}
           >
                 {/* Zoom Controls */}
@@ -1459,7 +1465,7 @@ export default function App(): React.ReactElement {
                       icon={<ZoomOutOutlined />}
                       onClick={handleZoomOut}
                       disabled={zoomLevel <= 50}
-                      className="!text-white hover:!bg-white/10 !border-none"
+                      className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
                     />
                   </Tooltip>
 
@@ -1473,12 +1479,12 @@ export default function App(): React.ReactElement {
                       className="!w-24"
                       tooltip={{ formatter: (value) => `${value}%` }}
                       styles={{
-                        rail: { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
+                        rail: { backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)' },
                         track: { backgroundColor: 'rgba(168, 85, 247, 0.8)' },
                         handle: { borderColor: '#a855f7', backgroundColor: '#a855f7' },
                       }}
                     />
-                    <span className="text-white text-sm font-medium min-w-[50px] text-center">
+                    <span className={!theme || theme === 'dark' ? 'text-white' : 'text-gray-900'} style={{ fontSize: '14px', fontWeight: 500, minWidth: '50px', textAlign: 'center' } as React.CSSProperties}>
                       {zoomLevel}%
                     </span>
                   </div>
@@ -1489,7 +1495,7 @@ export default function App(): React.ReactElement {
                       icon={<ZoomInOutlined />}
                       onClick={handleZoomIn}
                       disabled={zoomLevel >= 500}
-                      className="!text-white hover:!bg-white/10 !border-none"
+                      className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
                     />
                   </Tooltip>
 
@@ -1498,13 +1504,13 @@ export default function App(): React.ReactElement {
                       type="text"
                       icon={<CompressOutlined />}
                       onClick={handleZoomReset}
-                      className="!text-white hover:!bg-white/10 !border-none"
+                      className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
                     />
                   </Tooltip>
                 </div>
 
                 {/* Divider */}
-                <div className="w-px h-6 bg-white/20 mx-1" />
+                <div className="w-px h-6 mx-1" style={{ backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)' }} />
 
                 {/* Fit Mode Toggle */}
                 <Tooltip title={`Fit Mode: ${fitMode} (Press F to cycle)`}>
@@ -1516,14 +1522,14 @@ export default function App(): React.ReactElement {
                       const currentIdx = modes.indexOf(fitMode);
                       handleFitModeChange(modes[(currentIdx + 1) % modes.length]);
                     }}
-                    className="!text-white hover:!bg-white/10 !border-none !font-medium"
+                    className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none !font-medium' : '!text-gray-900 hover:!bg-gray-900/10 !border-none !font-medium'}
                   >
                     {fitMode === 'contain' ? 'Fit' : fitMode === 'actual' ? '100%' : 'Fill'}
                   </Button>
                 </Tooltip>
 
                 {/* Divider */}
-                <div className="w-px h-6 bg-white/20 mx-1" />
+                <div className="w-px h-6 mx-1" style={{ backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)' }} />
 
                 {/* Navigation */}
                 <div className="control-button-group flex items-center gap-1">
@@ -1533,11 +1539,11 @@ export default function App(): React.ReactElement {
                       icon={<LeftOutlined />}
                       onClick={handlePreviousImage}
                       disabled={currentNavIndex === 0}
-                      className="!text-white hover:!bg-white/10 !border-none"
+                      className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
                     />
                   </Tooltip>
 
-                  <span className="text-white text-sm font-medium min-w-[60px] text-center">
+                  <span className={!theme || theme === 'dark' ? 'text-white' : 'text-gray-900'} style={{ fontSize: '14px', fontWeight: 500, minWidth: '60px', textAlign: 'center' } as React.CSSProperties}>
                     {navigationImages.length > 0 ? `${currentNavIndex + 1} / ${navigationImages.length}` : 'Preview'}
                   </span>
 
@@ -1547,13 +1553,13 @@ export default function App(): React.ReactElement {
                       icon={<RightOutlined />}
                       onClick={handleNextImage}
                       disabled={currentNavIndex >= navigationImages.length - 1 || navigationImages.length === 0}
-                      className="!text-white hover:!bg-white/10 !border-none"
+                      className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
                     />
                   </Tooltip>
                 </div>
 
                 {/* Divider */}
-                <div className="w-px h-6 bg-white/20 mx-1" />
+                <div className="w-px h-6 mx-1" style={{ backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)' }} />
 
                 {/* Fullscreen Toggle */}
                 <Tooltip title="Fullscreen (F11)">
@@ -1561,19 +1567,19 @@ export default function App(): React.ReactElement {
                     type="text"
                     icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
                     onClick={handleFullscreenToggle}
-                    className="!text-white hover:!bg-white/10 !border-none"
+                    className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
                   />
                 </Tooltip>
 
                 {/* Divider */}
-                <div className="w-px h-6 bg-white/20 mx-1" />
+                <div className="w-px h-6 mx-1" style={{ backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)' }} />
 
                 {/* Close Button */}
                 <Tooltip title="Close (ESC)">
                   <Button
                     type="text"
                     onClick={closePreview}
-                    className="!text-white hover:!bg-red-500/20 !border-none !text-lg"
+                    className={!theme || theme === 'dark' ? '!text-white hover:!bg-red-500/20 !border-none !text-lg' : '!text-gray-900 hover:!bg-red-500/20 !border-none !text-lg'}
                   >
                     ✕
                   </Button>
@@ -1581,7 +1587,13 @@ export default function App(): React.ReactElement {
           </div>
 
           {/* Keyboard Shortcuts Hint */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md rounded-full px-4 py-2 text-white/60 text-xs pointer-events-none">
+          <div
+            className="absolute top-4 left-1/2 -translate-x-1/2 backdrop-blur-md rounded-full px-4 py-2 text-xs pointer-events-none"
+            style={{
+              backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.7)',
+              color: theme === 'dark' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
+            }}
+          >
             +/-: Zoom • 0: Reset • F: Fit Mode • F11: Fullscreen • ESC: Close
           </div>
         </div>
