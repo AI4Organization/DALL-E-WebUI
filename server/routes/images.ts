@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import openai from '../lib/openai-client';
-import { validateModelForBaseURL, validateStyleForModel, validateGPTImage15Params, getPromptLimitForModel } from '../lib/validation';
+import { validateModelForBaseURL, validateStyleForModel, validateGPTImage15Params, validateDALLE2Params, getPromptLimitForModel } from '../lib/validation';
 import type {
   ImagesApiResponse,
+  ImagesApiErrorResponse,
   ImageQuality,
   ImageSize,
   ImageStyle,
@@ -13,10 +14,15 @@ const router = Router();
 /**
  * POST /api/images - Handles DALL-E image generation
  *
- * Supports DALL-E 3 and GPT Image 1.5 models.
+ * Supports DALL-E 3, DALL-E 2, and GPT Image 1.5 models.
  * Each request generates images based on the model's capabilities.
+ *
+ * Model-specific parameters:
+ * - DALL-E 3: Requires style (vivid/natural), quality (standard/hd), supports n=1 only
+ * - DALL-E 2: No quality parameter (API ignores it), no style, supports n=1 to n=10
+ * - GPT Image 1.5: Quality (auto/high/medium/low), output_format (png/jpeg/webp), background (auto/transparent/opaque), supports n=1 to n=10
  */
-router.post('/', async (req: Request, res: Response<ImagesApiResponse | { error: string; details?: string[] }>) => {
+router.post('/', async (req: Request, res: Response<ImagesApiResponse | ImagesApiErrorResponse>) => {
   const {
     p: prompt,
     n,
@@ -86,6 +92,21 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | { error:
     }
   }
 
+  // Validate DALL-E 2 specific parameters
+  if (selectedModel === 'dall-e-2') {
+    const dalle2Validation = validateDALLE2Params({
+      quality: quality as string,
+      size: size as string,
+      n: n as unknown as number,
+    });
+    if (!dalle2Validation.valid) {
+      return res.status(400).json({
+        error: 'Invalid DALL-E 2 parameters',
+        details: dalle2Validation.errors
+      });
+    }
+  }
+
   try {
     // Build request parameters based on model
     // Note: We use 'as any' for dynamic parameters since they differ by model
@@ -97,8 +118,9 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | { error:
       model: selectedModel as string,
     };
 
-    // Add quality parameter (both DALL-E 3 and GPT Image 1.5 support it)
-    if (quality) {
+    // Add quality parameter for DALL-E 3 and GPT Image 1.5
+    // DALL-E 2 does not support quality parameter (always standard)
+    if (quality && selectedModel !== 'dall-e-2') {
       requestParams.quality = quality;
     }
 
@@ -129,6 +151,60 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | { error:
     res.status(200).json({ result: response.data });
   } catch (error) {
     console.error('Image generation error:', error);
+
+    // Check for OpenAI API errors with specific status codes
+    const apiError = error as any;
+    if (apiError.status) {
+      // Handle specific OpenAI error statuses
+      const status = apiError.status;
+      const errorMessage = apiError.message || 'API request failed';
+      const errorCode = apiError.code || '';
+      const errorType = apiError.type || '';
+
+      // Return appropriate status code based on error type
+      if (status === 403 || errorCode === 'model_not_found') {
+        return res.status(403).json({
+          error: errorMessage,
+          details: [
+            `Model '${selectedModel}' is not available for your API key.`,
+            errorType === 'image_generation_user_error'
+              ? 'Please check your OpenAI project settings to enable this model.'
+              : 'Please verify your API key has access to this model.'
+          ],
+          code: errorCode,
+          type: errorType
+        });
+      }
+
+      if (status === 401) {
+        return res.status(401).json({
+          error: 'Authentication failed',
+          details: [errorMessage, 'Please check your API key.']
+        });
+      }
+
+      if (status === 400) {
+        return res.status(400).json({
+          error: 'Invalid request',
+          details: [errorMessage]
+        });
+      }
+
+      if (status === 429) {
+        return res.status(429).json({
+          error: 'Rate limit exceeded',
+          details: [errorMessage, 'Please try again later.']
+        });
+      }
+
+      // For other status codes from OpenAI, preserve them
+      return res.status(status).json({
+        error: errorMessage,
+        details: errorCode ? [`${errorCode}: ${errorMessage}`] : [errorMessage]
+      });
+    }
+
+    // Generic error fallback
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     res.status(500).json({
       error: 'Failed to generate image',

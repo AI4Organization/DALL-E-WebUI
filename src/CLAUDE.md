@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## Purpose
 
-This directory contains the React 19 single-page application (SPA) built with Rsbuild. It provides the user interface for generating images using OpenAI's DALL-E 3 and GPT Image 1.5 APIs.
+This directory contains the React 19 single-page application (SPA) built with Rsbuild. It provides the user interface for generating images using OpenAI's DALL-E 3, DALL-E 2, and GPT Image 1.5 APIs.
 
 ## Architecture
 
@@ -38,22 +38,24 @@ React 19 entry point that:
 ### `App.tsx` - Main Application Component
 
 Primary UI component containing:
-- Prompt input with character counter (max 4000 characters)
-- Model selection (DALL-E 2, DALL-E 3, etc.)
-- Generation parameters (quality, size, style, format)
+- Prompt input with character counter (dynamic based on model)
+- Model selection (DALL-E 3, DALL-E 2, GPT Image 1.5)
+- Generation parameters (quality, size, style, output format, background)
 - Generate and download buttons
 - Image results display with preview modal
 - Configuration validation
 
 **Key Features:**
 - Uses `API_BASE_URL` environment variable for API calls
-- Implements character count validation (dynamic based on model: 4000 for DALL-E 3, 32000 for GPT Image 1.5)
+- Implements character count validation (dynamic based on model: 1000 for DALL-E 2, 4000 for DALL-E 3, 32000 for GPT Image 1.5)
 - Shows real-time character counter in the prompt input
 - Shows loading states during generation
 - Displays images with zoom/preview modal
 - Handles error messages with Ant Design Alert
-- Supports both image URL format (DALL-E 3) and base64 format (GPT Image 1.5)
+- Supports both image URL format (DALL-E 2, DALL-E 3) and base64 format (GPT Image 1.5)
 - Downloads base64 images directly in browser, URLs via backend conversion
+- Quality dropdown shows for all models (DALL-E 2 shows only "standard" option)
+- Quality parameter is only sent to API for DALL-E 3 and GPT Image 1.5 (DALL-E 2 ignores it)
 
 ### Component Architecture
 

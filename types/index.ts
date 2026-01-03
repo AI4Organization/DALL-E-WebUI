@@ -11,6 +11,9 @@ export interface OpenAIImageResult {
 }
 
 // ============ Image Generation Types ============
+// DALL-E 2 quality options
+export type DALLE2ImageQuality = 'standard';
+
 // DALL-E 3 quality options
 export type ImageQuality = 'standard' | 'hd';
 
@@ -34,11 +37,15 @@ export interface ImageGenerationItem {
   error?: string;
 }
 
+// DALL-E 2 sizes: 256x256, 512x512, 1024x1024
 // DALL-E 3 sizes: 1024x1024, 1024x1792, 1792x1024
 // GPT Image 1.5 sizes: auto, 1024x1024, 1536x1024, 1024x1536
 export type ImageSize =
   // Common size
   | '1024x1024'
+  // DALL-E 2 sizes
+  | '256x256'
+  | '512x512'
   // DALL-E 3 sizes
   | '1024x1792'
   | '1792x1024'
@@ -51,6 +58,7 @@ export type ImageStyle = 'vivid' | 'natural';
 export type DownloadFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif';
 
 // Model-specific size options
+export const DALL_E_2_SIZES: readonly ImageSize[] = ['256x256', '512x512', '1024x1024'] as const;
 export const DALL_E_3_SIZES: readonly ImageSize[] = ['1024x1024', '1024x1792', '1792x1024'] as const;
 export const GPT_IMAGE_1_5_SIZES: readonly ImageSize[] = ['auto', '1024x1024', '1536x1024', '1024x1536'] as const;
 
@@ -71,6 +79,13 @@ export interface ImagesApiQueryParams {
 
 export interface ImagesApiResponse {
   result: OpenAIImageResult[];
+}
+
+export interface ImagesApiErrorResponse {
+  error: string;
+  details?: string[];
+  code?: string;
+  type?: string;
 }
 
 export interface DownloadApiRequestBody {

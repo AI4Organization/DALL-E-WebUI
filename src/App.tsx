@@ -47,7 +47,7 @@ import type {
   GPTImageOutputFormat,
   GPTImageBackground,
 } from '../types';
-import { DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../types';
+import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../types';
 
 const { TextArea } = Input;
 
@@ -58,6 +58,10 @@ declare const process: { env: { API_BASE_URL: string } };
 const DALL_E_3_QUALITY_OPTIONS: { value: ImageQuality; label: string }[] = [
   { value: 'standard', label: 'Standard' },
   { value: 'hd', label: 'HD' },
+];
+
+const DALL_E_2_QUALITY_OPTIONS: { value: ImageQuality; label: string }[] = [
+  { value: 'standard', label: 'Standard' },
 ];
 
 const GPT_IMAGE_1_5_QUALITY_OPTIONS: { value: GPTImageQuality; label: string }[] = [
@@ -71,6 +75,9 @@ const getQualityOptions = (modelName: string | null): { value: ImageQuality | GP
   if (modelName === 'gpt-image-1.5') {
     return GPT_IMAGE_1_5_QUALITY_OPTIONS;
   }
+  if (modelName === 'dall-e-2') {
+    return DALL_E_2_QUALITY_OPTIONS;
+  }
   return DALL_E_3_QUALITY_OPTIONS;
 };
 
@@ -82,6 +89,15 @@ const getSizeOptions = (modelName: string | null): { value: ImageSize; label: st
              size === '1024x1024' ? '1024 x 1024 (Square)' :
              size === '1536x1024' ? '1536 x 1024 (Landscape)' :
              size === '1024x1536' ? '1024 x 1536 (Portrait)' :
+             size.replace('x', ' x '),
+    }));
+  }
+  if (modelName === 'dall-e-2') {
+    return DALL_E_2_SIZES.map((size) => ({
+      value: size,
+      label: size === '256x256' ? '256 x 256' :
+             size === '512x512' ? '512 x 512' :
+             size === '1024x1024' ? '1024 x 1024 (Square)' :
              size.replace('x', ' x '),
     }));
   }
@@ -98,20 +114,28 @@ const isSizeValidForModel = (size: ImageSize, modelName: string | null): boolean
   if (modelName === 'gpt-image-1.5') {
     return GPT_IMAGE_1_5_SIZES.includes(size);
   }
+  if (modelName === 'dall-e-2') {
+    return DALL_E_2_SIZES.includes(size);
+  }
   return DALL_E_3_SIZES.includes(size);
 };
 
 const getDefaultSizeForModel = (modelName: string | null): ImageSize => {
   if (modelName === 'gpt-image-1.5') {
-    return 'auto'; // Default for GPT Image 1.5
+    return GPT_IMAGE_1_5_SIZES[2]; // '1536x1024' (Landscape)
   }
-  return '1024x1024'; // Default for DALL-E 3
+  if (modelName === 'dall-e-3') {
+    return DALL_E_3_SIZES[2]; // '1792x1024' (Landscape)
+  }
+  // DALL-E 2 defaults to largest square (only square sizes available)
+  return DALL_E_2_SIZES[2]; // '1024x1024'
 };
 
 // Helper function to get prompt limit for model
 const getPromptLimit = (modelName: string | null): number => {
   if (modelName === 'gpt-image-1.5') return 32000;
   if (modelName === 'dall-e-3') return 4000;
+  if (modelName === 'dall-e-2') return 1000;
   return 4000; // Default
 };
 
@@ -119,6 +143,7 @@ const getPromptLimit = (modelName: string | null): number => {
 const getMaxImages = (modelName: string | null): number => {
   if (modelName === 'gpt-image-1.5') return 10;
   if (modelName === 'dall-e-3') return 1;
+  if (modelName === 'dall-e-2') return 10;
   return 1; // Default conservative
 };
 
@@ -197,6 +222,28 @@ const getImageDisplayUrl = (result: OpenAIImageResult): string | undefined => {
 // Check if result has a downloadable image source
 const hasDownloadableImage = (result: OpenAIImageResult): boolean => {
   return !!result.url || !!result.b64_json;
+};
+
+// Extract user-friendly error message from API error response
+const getApiErrorMessage = (err: unknown): string => {
+  // Check if it's an axios error with response data
+  const axiosError = err as { response?: { data?: { error?: string; details?: string[] } } };
+  if (axiosError.response?.data) {
+    const { error, details } = axiosError.response.data;
+
+    // If we have details array, join them for user-friendly message
+    if (details && details.length > 0) {
+      return details.join('. ');
+    }
+
+    // Fall back to error message
+    if (error) {
+      return error;
+    }
+  }
+
+  // Fall back to standard error message
+  return err instanceof Error ? err.message : 'Unknown error';
 };
 
 // ============ Floating Blob Component ============
@@ -285,6 +332,8 @@ export default function App(): React.ReactElement {
   useEffect(() => {
     if (model === 'gpt-image-1.5') {
       setQuality('auto');
+    } else if (model === 'dall-e-2') {
+      setQuality('standard');
     } else if (model === 'dall-e-3') {
       setQuality('hd');
     }
@@ -485,10 +534,14 @@ export default function App(): React.ReactElement {
       const queryParams = new URLSearchParams({
         p: encodeURIComponent(prompt),
         n: '1',
-        q: quality,
         s: size,
         m: model ?? 'dall-e-3',
       });
+
+      // Add quality for DALL-E 3 and GPT Image 1.5 (DALL-E 2 doesn't support it)
+      if (model === 'dall-e-3' || model === 'gpt-image-1.5') {
+        queryParams.append('q', quality);
+      }
 
       if (model === 'dall-e-3') {
         queryParams.append('st', style);
@@ -511,7 +564,7 @@ export default function App(): React.ReactElement {
         }
       } catch (err) {
         console.error(`Image ${id + 1} generation error:`, err);
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+        const errorMessage = getApiErrorMessage(err);
         updateItem(id, { status: 'error', error: errorMessage });
         toast.error(`Image ${id + 1} failed: ${errorMessage}`);
       }
@@ -548,7 +601,7 @@ export default function App(): React.ReactElement {
         setGenerationItems(updatedItems);
         toast.success(`${results.length} image${results.length !== 1 ? 's' : ''} generated!`);
       } else {
-        // DALL-E 3: Make parallel requests (one per image)
+        // DALL-E 3 and DALL-E 2: Make parallel requests (one per image)
         const tasks = Array.from({ length: number }, (_, i) =>
           limit(() => generateSingleImage(i))
         );
@@ -558,6 +611,8 @@ export default function App(): React.ReactElement {
     } catch (err) {
       console.error('Batch generation error:', err);
       setError(true);
+      const errorMessage = getApiErrorMessage(err);
+      toast.error(`Generation failed: ${errorMessage}`);
     } finally {
       setLoading(false);
       setIsGenerationInProgress(false);
@@ -604,10 +659,14 @@ export default function App(): React.ReactElement {
     const queryParams = new URLSearchParams({
       p: encodeURIComponent(prompt),
       n: '1',
-      q: quality,
       s: size,
       m: model ?? 'dall-e-3',
     });
+
+    // Add quality for DALL-E 3 and GPT Image 1.5 (DALL-E 2 doesn't support it)
+    if (model === 'dall-e-3' || model === 'gpt-image-1.5') {
+      queryParams.append('q', quality);
+    }
 
     if (model === 'dall-e-3') {
       queryParams.append('st', style);
@@ -634,7 +693,7 @@ export default function App(): React.ReactElement {
       }
     } catch (err) {
       console.error(`Image ${id + 1} retry error:`, err);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = getApiErrorMessage(err);
       setGenerationItems((prev) =>
         prev.map((item) =>
           item.id === id ? { ...item, status: 'error' as ImageGenerationStatus, error: errorMessage } : item
@@ -881,8 +940,8 @@ export default function App(): React.ReactElement {
                   )}
                   </Col>
 
-                  {/* Quality (DALL-E 3 and GPT Image 1.5) */}
-                  {(model === 'dall-e-3' || model === 'gpt-image-1.5') && (
+                  {/* Quality (DALL-E 2, DALL-E 3 and GPT Image 1.5) */}
+                  {(model === 'dall-e-2' || model === 'dall-e-3' || model === 'gpt-image-1.5') && (
                     <Col xs={24} sm={12} md={6}>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
                         Quality
