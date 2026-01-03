@@ -1192,8 +1192,8 @@ export default function App(): React.ReactElement {
                                   <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
                                     <ZoomInOutlined className="text-white text-4xl drop-shadow-lg" />
                                   </div>
-                                  <div className="absolute top-3 right-3 flex items-center gap-2 bg-black/50 backdrop-blur-md rounded-full px-3 py-1">
-                                    <CheckCircleOutlined className="text-accent-cyan text-sm" />
+                                  <div className="absolute top-3 right-3 flex items-center gap-2 bg-emerald-500/90 backdrop-blur-md rounded-full px-3 py-1 shadow-lg">
+                                    <CheckCircleOutlined className="text-white text-sm" />
                                     <span className="text-white text-xs font-medium">Ready</span>
                                   </div>
                                 </div>
