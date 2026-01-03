@@ -11,6 +11,7 @@ import {
   Col,
   Modal,
   Tooltip,
+  Slider,
 } from 'antd';
 import {
   LoadingOutlined,
@@ -22,9 +23,15 @@ import {
   StarOutlined,
   ZoomInOutlined,
   ZoomOutOutlined,
+  CompressOutlined,
+  ExpandOutlined,
+  FullscreenOutlined,
+  FullscreenExitOutlined,
   ReloadOutlined,
   CloseCircleOutlined,
   CheckCircleOutlined,
+  LeftOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import pLimit from 'p-limit';
@@ -313,10 +320,19 @@ export default function App(): React.ReactElement {
 
   // Image preview state
   const [previewImage, setPreviewImage] = useState<{ url: string; index: number } | null>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
-  const [imagePosition, setImagePosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [navigationImages, setNavigationImages] = useState<OpenAIImageResult[]>([]);
+  const [currentNavIndex, setCurrentNavIndex] = useState<number>(0);
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+
+  // Zoom & Pan State
+  const [zoomLevel, setZoomLevel] = useState<number>(100);  // 50% to 500%
+  const [panPosition, setPanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [fitMode, setFitMode] = useState<'contain' | 'actual' | 'fill'>('contain');
+
+  // Fullscreen State
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // ============ Effects ============
   useEffect(() => {
@@ -667,70 +683,163 @@ export default function App(): React.ReactElement {
   };
 
   // ============ Preview Handlers ============
-  const openPreview = (url: string, index: number): void => {
-    setPreviewImage({ url, index });
-    setZoomLevel(1);
-    setImagePosition({ x: 0, y: 0 });
+  const openPreview = (clickedResult: OpenAIImageResult, clickedIndex: number): void => {
+    // Extract all successfully generated images
+    const allSuccessfulImages = generationItems
+      .filter(item => item.status === 'success' && item.result)
+      .map(item => item.result!);
+
+    // Find the index of the clicked image
+    const clickedNavIndex = allSuccessfulImages.findIndex(
+      img => img.url === clickedResult.url || img.b64_json === clickedResult.b64_json
+    );
+
+    setNavigationImages(allSuccessfulImages);
+    setCurrentNavIndex(clickedNavIndex >= 0 ? clickedNavIndex : 0);
+    setPreviewImage({ url: getImageDisplayUrl(clickedResult) ?? '', index: clickedIndex });
   };
 
   const closePreview = (): void => {
     setPreviewImage(null);
-    setZoomLevel(1);
-    setImagePosition({ x: 0, y: 0 });
-    setIsDragging(false);
+    setNavigationImages([]);
+    setCurrentNavIndex(0);
   };
 
-  const handleZoomIn = (): void => {
-    setZoomLevel((prev) => Math.min(prev + 0.25, 5));
-  };
-
-  const handleZoomOut = (): void => {
-    setZoomLevel((prev) => Math.max(prev - 0.25, 0.5));
-  };
-
-  const handleResetZoom = (): void => {
-    setZoomLevel(1);
-    setImagePosition({ x: 0, y: 0 });
-  };
-
-  const handleWheel = (e: React.WheelEvent): void => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoomLevel((prev) => Math.min(Math.max(prev + delta, 0.5), 5));
-  };
-
-  const handleMouseDown = (e: React.MouseEvent): void => {
-    if (zoomLevel > 1) {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - imagePosition.x, y: e.clientY - imagePosition.y });
+  const handlePreviousImage = (): void => {
+    if (currentNavIndex > 0) {
+      setCurrentNavIndex(currentNavIndex - 1);
+      const prevImage = navigationImages[currentNavIndex - 1];
+      setPreviewImage({ url: getImageDisplayUrl(prevImage) ?? '', index: currentNavIndex - 1 });
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent): void => {
-    if (isDragging && zoomLevel > 1) {
-      setImagePosition({
+  const handleNextImage = (): void => {
+    if (currentNavIndex < navigationImages.length - 1) {
+      setCurrentNavIndex(currentNavIndex + 1);
+      const nextImage = navigationImages[currentNavIndex + 1];
+      setPreviewImage({ url: getImageDisplayUrl(nextImage) ?? '', index: currentNavIndex + 1 });
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent): void => {
+    setTouchStart(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent): void => {
+    if (touchStart === null) return;
+
+    const touchEnd = e.changedTouches[0].clientX;
+    const diff = touchStart - touchEnd;
+    const SWIPE_THRESHOLD = 50;
+
+    if (Math.abs(diff) > SWIPE_THRESHOLD) {
+      if (diff > 0) {
+        handleNextImage();
+      } else {
+        handlePreviousImage();
+      }
+    }
+
+    setTouchStart(null);
+  };
+
+  // ============ Zoom & Pan Handlers ============
+  const handleZoomIn = useCallback((): void => {
+    setZoomLevel(prev => Math.min(prev + 25, 500));
+  }, []);
+
+  const handleZoomOut = useCallback((): void => {
+    setZoomLevel(prev => Math.max(prev - 25, 50));
+  }, []);
+
+  const handleZoomReset = useCallback((): void => {
+    setZoomLevel(100);
+    setPanPosition({ x: 0, y: 0 });
+    setFitMode('contain');
+  }, []);
+
+  const handleFitModeChange = useCallback((mode: 'contain' | 'actual' | 'fill'): void => {
+    setFitMode(mode);
+    if (mode === 'contain') {
+      setZoomLevel(100);
+      setPanPosition({ x: 0, y: 0 });
+    } else if (mode === 'actual') {
+      setZoomLevel(100);
+      setPanPosition({ x: 0, y: 0 });
+    } else if (mode === 'fill') {
+      setZoomLevel(100);
+      setPanPosition({ x: 0, y: 0 });
+    }
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent): void => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -25 : 25;
+      setZoomLevel(prev => Math.min(Math.max(prev + delta, 50), 500));
+    }
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent): void => {
+    if (zoomLevel > 100 || fitMode === 'actual') {
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - panPosition.x, y: e.clientY - panPosition.y });
+    }
+  }, [zoomLevel, fitMode, panPosition]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent): void => {
+    if (isDragging) {
+      setPanPosition({
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y,
       });
     }
-  };
+  }, [isDragging, dragStart]);
 
-  const handleMouseUp = (): void => {
+  const handleMouseUp = useCallback((): void => {
     setIsDragging(false);
-  };
+  }, []);
 
+  const handleFullscreenToggle = useCallback((): void => {
+    setIsFullscreen(prev => !prev);
+  }, []);
+
+  // Update keyboard shortcuts
   const handleKeyDown = (e: KeyboardEvent): void => {
     if (!previewImage) return;
+
+    // Navigation
     if (e.key === 'Escape') closePreview();
+    if (e.key === 'ArrowLeft') handlePreviousImage();
+    if (e.key === 'ArrowRight') handleNextImage();
+
+    // Zoom
     if (e.key === '+' || e.key === '=') handleZoomIn();
     if (e.key === '-' || e.key === '_') handleZoomOut();
-    if (e.key === '0') handleResetZoom();
+    if (e.key === '0') handleZoomReset();
+
+    // Fit mode
+    if (e.key === 'f') {
+      const modes: Array<'contain' | 'actual' | 'fill'> = ['contain', 'actual', 'fill'];
+      const currentIdx = modes.indexOf(fitMode);
+      handleFitModeChange(modes[(currentIdx + 1) % modes.length]);
+    }
+
+    // Fullscreen
+    if (e.key === 'F11') {
+      e.preventDefault();
+      handleFullscreenToggle();
+    }
   };
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [previewImage, zoomLevel, imagePosition, dragStart]);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [previewImage, currentNavIndex, navigationImages, fitMode, handleZoomIn, handleZoomOut, handleZoomReset, handleFitModeChange, handleFullscreenToggle, handleMouseUp]);
 
   // ============ Render ============
   return (
@@ -1180,7 +1289,7 @@ export default function App(): React.ReactElement {
                                 <div
                                   className="relative overflow-hidden cursor-pointer"
                                   style={{ backgroundColor: 'var(--color-card-bg)' }}
-                                  onClick={() => openPreview(imageUrl, item.id)}
+                                  onClick={() => openPreview(item.result, item.id)}
                                 >
                                   <img
                                     src={imageUrl}
@@ -1260,94 +1369,220 @@ export default function App(): React.ReactElement {
         </motion.footer>
       </div>
 
-      {/* Custom Image Preview Modal with Zoom */}
+      {/* Enhanced Image Preview Modal with Zoom/Pan */}
       <Modal
         open={previewImage !== null}
         onCancel={closePreview}
         footer={null}
         centered
-        width="90vw"
-        style={{ maxWidth: '1600px' }}
+        width="95vw"
+        style={{ maxWidth: '1920px', top: 20 }}
         className="image-preview-modal"
-        closeIcon={<span className="text-white text-2xl">✕</span>}
-        title={
-          <div className="flex items-center justify-between px-2">
-            <span className="text-white font-semibold">
-              Image #{previewImage?.index ?? 0 + 1}
-            </span>
-            <Space size="middle">
-              <Tooltip title="Zoom Out (-)">
-                <Button
-                  icon={<ZoomOutOutlined />}
-                  onClick={handleZoomOut}
-                  disabled={zoomLevel <= 0.5}
-                  className="!bg-white/10 !border-white/20 !text-white hover:!bg-white/20"
-                />
-              </Tooltip>
-              <span className="text-white min-w-[60px] text-center">
-                {Math.round(zoomLevel * 100)}%
-              </span>
-              <Tooltip title="Zoom In (+)">
-                <Button
-                  icon={<ZoomInOutlined />}
-                  onClick={handleZoomIn}
-                  disabled={zoomLevel >= 5}
-                  className="!bg-white/10 !border-white/20 !text-white hover:!bg-white/20"
-                />
-              </Tooltip>
-              <Tooltip title="Reset Zoom (0)">
-                <Button
-                  icon={<ReloadOutlined />}
-                  onClick={handleResetZoom}
-                  className="!bg-white/10 !border-white/20 !text-white hover:!bg-white/20"
-                />
-              </Tooltip>
-            </Space>
-          </div>
-        }
+        closeIcon={null}
+        title={null}
         styles={{
-          header: {
-            background: 'rgba(15, 15, 25, 0.95)',
-            backdropFilter: 'blur(20px)',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '12px 12px 0 0',
+          content: {
+            background: 'transparent',
+            padding: 0,
+            overflow: 'hidden',
           },
         }}
         rootClassName="image-preview-modal-root"
         wrapClassName="image-preview-modal-wrap"
       >
+        {/* Image Container with Zoom/Pan */}
         <div
-          className="relative overflow-hidden rounded-b-lg"
-          onWheel={handleWheel}
+          className="relative preview-image-container"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
+            height: '90vh',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            cursor: isDragging ? 'grabbing' : (zoomLevel > 100 || fitMode === 'actual') ? 'grab' : 'default',
+          }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-            height: '80vh',
-            cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
-          }}
+          onWheel={handleWheel}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
         >
           {previewImage && (
-            <motion.img
+            <motion.div
               key={previewImage.url}
-              src={previewImage.url}
-              alt={`Preview ${previewImage.index + 1}`}
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.3 }}
-              draggable={false}
-              className="max-w-max max-h-full"
+              className="preview-image-wrapper"
               style={{
-                transform: `scale(${zoomLevel}) translate(${imagePosition.x / zoomLevel}px, ${imagePosition.y / zoomLevel}px)`,
-                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-                transformOrigin: 'center center',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                width: '100%',
               }}
-            />
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              <motion.img
+                src={previewImage.url}
+                alt={`Preview ${currentNavIndex + 1}`}
+                draggable={false}
+                className="preview-image"
+                style={{
+                  maxWidth: fitMode === 'fill' ? '100%' : '100%',
+                  maxHeight: fitMode === 'fill' ? '100%' : '100%',
+                  objectFit: fitMode === 'contain' ? 'contain' : fitMode === 'fill' ? 'fill' : 'none',
+                  transform: `scale(${zoomLevel / 100}) translate(${panPosition.x / (zoomLevel / 100)}px, ${panPosition.y / (zoomLevel / 100)}px)`,
+                  transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                  userSelect: 'none',
+                  WebkitUserDrag: 'none' as const,
+                }}
+                onDoubleClick={handleZoomReset}
+              />
+            </motion.div>
           )}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur-md rounded-full px-4 py-2 text-white/70 text-xs">
-            Scroll to zoom • Drag to pan • Esc to close • +/- keys to zoom
+
+          {/* Floating Control Bar - Always Visible */}
+          <div
+            className="preview-floating-controls absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 rounded-2xl bg-black/60 backdrop-blur-xl border border-white/10 shadow-2xl"
+            style={{
+              maxWidth: '90vw',
+              flexWrap: 'wrap',
+              justifyContent: 'center',
+            }}
+          >
+                {/* Zoom Controls */}
+                <div className="control-button-group flex items-center gap-2">
+                  <Tooltip title="Zoom Out (-)">
+                    <Button
+                      type="text"
+                      icon={<ZoomOutOutlined />}
+                      onClick={handleZoomOut}
+                      disabled={zoomLevel <= 50}
+                      className="!text-white hover:!bg-white/10 !border-none"
+                    />
+                  </Tooltip>
+
+                  <div className="flex items-center gap-2 px-2">
+                    <Slider
+                      min={50}
+                      max={500}
+                      value={zoomLevel}
+                      onChange={(value) => setZoomLevel(value)}
+                      step={25}
+                      className="!w-24"
+                      tooltip={{ formatter: (value) => `${value}%` }}
+                      styles={{
+                        rail: { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
+                        track: { backgroundColor: 'rgba(168, 85, 247, 0.8)' },
+                        handle: { borderColor: '#a855f7', backgroundColor: '#a855f7' },
+                      }}
+                    />
+                    <span className="text-white text-sm font-medium min-w-[50px] text-center">
+                      {zoomLevel}%
+                    </span>
+                  </div>
+
+                  <Tooltip title="Zoom In (+)">
+                    <Button
+                      type="text"
+                      icon={<ZoomInOutlined />}
+                      onClick={handleZoomIn}
+                      disabled={zoomLevel >= 500}
+                      className="!text-white hover:!bg-white/10 !border-none"
+                    />
+                  </Tooltip>
+
+                  <Tooltip title="Reset Zoom (0 or Double-click)">
+                    <Button
+                      type="text"
+                      icon={<CompressOutlined />}
+                      onClick={handleZoomReset}
+                      className="!text-white hover:!bg-white/10 !border-none"
+                    />
+                  </Tooltip>
+                </div>
+
+                {/* Divider */}
+                <div className="w-px h-6 bg-white/20 mx-1" />
+
+                {/* Fit Mode Toggle */}
+                <Tooltip title={`Fit Mode: ${fitMode} (Press F to cycle)`}>
+                  <Button
+                    type="text"
+                    icon={fitMode === 'contain' ? <CompressOutlined /> : fitMode === 'actual' ? <ExpandOutlined /> : <ExpandOutlined />}
+                    onClick={() => {
+                      const modes: Array<'contain' | 'actual' | 'fill'> = ['contain', 'actual', 'fill'];
+                      const currentIdx = modes.indexOf(fitMode);
+                      handleFitModeChange(modes[(currentIdx + 1) % modes.length]);
+                    }}
+                    className="!text-white hover:!bg-white/10 !border-none !font-medium"
+                  >
+                    {fitMode === 'contain' ? 'Fit' : fitMode === 'actual' ? '100%' : 'Fill'}
+                  </Button>
+                </Tooltip>
+
+                {/* Divider */}
+                <div className="w-px h-6 bg-white/20 mx-1" />
+
+                {/* Navigation */}
+                <div className="control-button-group flex items-center gap-1">
+                  <Tooltip title="Previous Image (Left Arrow)">
+                    <Button
+                      type="text"
+                      icon={<LeftOutlined />}
+                      onClick={handlePreviousImage}
+                      disabled={currentNavIndex === 0}
+                      className="!text-white hover:!bg-white/10 !border-none"
+                    />
+                  </Tooltip>
+
+                  <span className="text-white text-sm font-medium min-w-[60px] text-center">
+                    {navigationImages.length > 0 ? `${currentNavIndex + 1} / ${navigationImages.length}` : 'Preview'}
+                  </span>
+
+                  <Tooltip title="Next Image (Right Arrow)">
+                    <Button
+                      type="text"
+                      icon={<RightOutlined />}
+                      onClick={handleNextImage}
+                      disabled={currentNavIndex >= navigationImages.length - 1 || navigationImages.length === 0}
+                      className="!text-white hover:!bg-white/10 !border-none"
+                    />
+                  </Tooltip>
+                </div>
+
+                {/* Divider */}
+                <div className="w-px h-6 bg-white/20 mx-1" />
+
+                {/* Fullscreen Toggle */}
+                <Tooltip title="Fullscreen (F11)">
+                  <Button
+                    type="text"
+                    icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+                    onClick={handleFullscreenToggle}
+                    className="!text-white hover:!bg-white/10 !border-none"
+                  />
+                </Tooltip>
+
+                {/* Divider */}
+                <div className="w-px h-6 bg-white/20 mx-1" />
+
+                {/* Close Button */}
+                <Tooltip title="Close (ESC)">
+                  <Button
+                    type="text"
+                    onClick={closePreview}
+                    className="!text-white hover:!bg-red-500/20 !border-none !text-lg"
+                  >
+                    ✕
+                  </Button>
+                </Tooltip>
+          </div>
+
+          {/* Keyboard Shortcuts Hint */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md rounded-full px-4 py-2 text-white/60 text-xs pointer-events-none">
+            +/-: Zoom • 0: Reset • F: Fit Mode • F11: Fullscreen • ESC: Close
           </div>
         </div>
       </Modal>
@@ -1407,6 +1642,80 @@ export default function App(): React.ReactElement {
         .image-preview-modal-wrap .ant-modal-mask {
           background: rgba(10, 10, 18, 0.95) !important;
           backdrop-filter: blur(10px);
+        }
+
+        /* Enhanced Preview Modal Styles */
+        .preview-image-container {
+          position: relative;
+          overflow: hidden;
+        }
+
+        .preview-image-wrapper {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100%;
+          width: 100%;
+        }
+
+        .preview-image {
+          display: block;
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: contain;
+          pointer-events: none;
+        }
+
+        .preview-floating-controls {
+          z-index: 1000;
+          transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+
+        .preview-floating-controls .ant-slider {
+          margin: 0;
+        }
+
+        .preview-floating-controls .ant-slider-rail {
+          background-color: rgba(255, 255, 255, 0.2) !important;
+        }
+
+        .preview-floating-controls .ant-slider-track {
+          background-color: rgba(168, 85, 247, 0.8) !important;
+        }
+
+        .preview-floating-controls .ant-slider-handle {
+          border-color: #a855f7 !important;
+          background-color: #a855f7 !important;
+        }
+
+        .control-button-group {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+
+        .control-button-group .ant-btn {
+          transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .control-button-group .ant-btn:active {
+          transform: scale(0.95);
+        }
+
+        .control-button-group .ant-btn-disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        /* Slider tooltip styling */
+        .ant-tooltip-inner {
+          background: rgba(15, 15, 25, 0.95) !important;
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .ant-tooltip-arrow-content {
+          background: rgba(15, 15, 25, 0.95) !important;
         }
       `}</style>
     </>
