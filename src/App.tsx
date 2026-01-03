@@ -689,14 +689,29 @@ export default function App(): React.ReactElement {
       .filter(item => item.status === 'success' && item.result)
       .map(item => item.result!);
 
-    // Find the index of the clicked image
-    const clickedNavIndex = allSuccessfulImages.findIndex(
-      img => img.url === clickedResult.url || img.b64_json === clickedResult.b64_json
-    );
+    // Find the index of the clicked image using a more robust comparison
+    const clickedNavIndex = allSuccessfulImages.findIndex(img => {
+      // Compare by URL first (for DALL-E 2/3)
+      if (img.url && clickedResult.url && img.url === clickedResult.url) {
+        return true;
+      }
+      // Compare by b64_json (for GPT Image 1.5)
+      if (img.b64_json && clickedResult.b64_json && img.b64_json === clickedResult.b64_json) {
+        return true;
+      }
+      return false;
+    });
 
+    // Set all state in the right order
     setNavigationImages(allSuccessfulImages);
     setCurrentNavIndex(clickedNavIndex >= 0 ? clickedNavIndex : 0);
-    setPreviewImage({ url: getImageDisplayUrl(clickedResult) ?? '', index: clickedIndex });
+
+    // Set previewImage with the correct URL from the navigation array
+    const targetImage = allSuccessfulImages[clickedNavIndex >= 0 ? clickedNavIndex : 0];
+    setPreviewImage({
+      url: getImageDisplayUrl(targetImage) ?? '',
+      index: clickedNavIndex >= 0 ? clickedNavIndex : 0
+    });
   };
 
   const closePreview = (): void => {
@@ -707,17 +722,25 @@ export default function App(): React.ReactElement {
 
   const handlePreviousImage = (): void => {
     if (currentNavIndex > 0) {
-      setCurrentNavIndex(currentNavIndex - 1);
-      const prevImage = navigationImages[currentNavIndex - 1];
-      setPreviewImage({ url: getImageDisplayUrl(prevImage) ?? '', index: currentNavIndex - 1 });
+      const newIndex = currentNavIndex - 1;
+      const prevImage = navigationImages[newIndex];
+      setCurrentNavIndex(newIndex);
+      setPreviewImage({
+        url: getImageDisplayUrl(prevImage) ?? '',
+        index: newIndex
+      });
     }
   };
 
   const handleNextImage = (): void => {
     if (currentNavIndex < navigationImages.length - 1) {
-      setCurrentNavIndex(currentNavIndex + 1);
-      const nextImage = navigationImages[currentNavIndex + 1];
-      setPreviewImage({ url: getImageDisplayUrl(nextImage) ?? '', index: currentNavIndex + 1 });
+      const newIndex = currentNavIndex + 1;
+      const nextImage = navigationImages[newIndex];
+      setCurrentNavIndex(newIndex);
+      setPreviewImage({
+        url: getImageDisplayUrl(nextImage) ?? '',
+        index: newIndex
+      });
     }
   };
 
