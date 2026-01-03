@@ -1471,13 +1471,14 @@ export default function App(): React.ReactElement {
 
           {/* Floating Control Bar - Always Visible */}
           <div
-            className="preview-floating-controls absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 rounded-2xl backdrop-blur-xl border shadow-2xl"
+            className="preview-floating-controls absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 rounded-2xl backdrop-blur-xl"
             style={{
               maxWidth: '90vw',
               flexWrap: 'wrap',
               justifyContent: 'center',
               backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.6)' : 'rgba(255, 255, 255, 0.8)',
-              borderColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+              border: 'none',
+              outline: 'none',
             }}
           >
                 {/* Zoom Controls */}
@@ -1719,8 +1720,9 @@ export default function App(): React.ReactElement {
         }
 
         .preview-floating-controls .ant-slider-handle {
-          border-color: #a855f7 !important;
+          border: none !important;
           background-color: #a855f7 !important;
+          box-shadow: none !important;
         }
 
         .control-button-group {
@@ -1730,11 +1732,21 @@ export default function App(): React.ReactElement {
         }
 
         .control-button-group .ant-btn {
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
           transition: background-color 0.2s ease, transform 0.1s ease;
         }
 
         .control-button-group .ant-btn:active {
           transform: scale(0.95);
+        }
+
+        .control-button-group .ant-btn:focus,
+        .control-button-group .ant-btn:focus-visible {
+          border: none !important;
+          outline: none !important;
+          box-shadow: none !important;
         }
 
         .control-button-group .ant-btn-disabled {
@@ -1746,7 +1758,7 @@ export default function App(): React.ReactElement {
         .ant-tooltip-inner {
           background: rgba(15, 15, 25, 0.95) !important;
           backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          border: none !important;
         }
 
         .ant-tooltip-arrow-content {
