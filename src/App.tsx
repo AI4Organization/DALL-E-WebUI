@@ -1120,7 +1120,7 @@ export default function App(): React.ReactElement {
                     style={{
                       background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%)',
                       border: 'none',
-                      borderRadius: '12px',
+                      borderRadius: '4px',
                     }}
                   >
                     {loading ? 'Generating Magic...' : `Generate ${number} Image${number !== 1 ? 's' : ''}`}
@@ -1412,7 +1412,7 @@ export default function App(): React.ReactElement {
 
           {/* Floating Control Bar - Always Visible */}
           <div
-            className="preview-floating-controls absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 rounded-2xl backdrop-blur-xl"
+            className="preview-floating-controls absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 rounded-[12px] backdrop-blur-xl"
             style={{
               maxWidth: '90vw',
               flexWrap: 'wrap',

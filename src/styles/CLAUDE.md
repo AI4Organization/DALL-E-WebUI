@@ -54,13 +54,36 @@ The CSS provides comprehensive dark/light theme support through CSS custom prope
 
 | Class | Purpose |
 |-------|---------|
-| `.glass-card` | Glass morphism card with blur |
-| `.glass-input` | Glass effect input fields |
+| `.glass-card` | Glass morphism card with blur (8px border-radius) |
+| `.glass-input` | Glass effect input fields (6px border-radius) |
 | `.gradient-text` | Purple-pink-cyan gradient text |
 | `.bg-gradient-mesh` | Conic gradient mesh background |
 | `.bg-gradient-glow` | Linear gradient glow background |
 | `.glow-button` | Button with shimmer hover effect |
+| `.button-primary` | Primary button with 4px border-radius |
+| `.button-secondary` | Secondary button with 4px border-radius |
+| `.pill` | Pill-shaped container with 16px border-radius |
 | `.line-clamp-3` | Limit text to 3 lines |
+
+### Border Radius Design System
+
+The application uses a graduated border-radius scale to create visual hierarchy:
+
+| Element Type | Border Radius | CSS Variable | Usage |
+|-------------|---------------|--------------|-------|
+| Buttons (primary & secondary) | 4px | `var(--radius-button-primary/secondary)` | All action buttons |
+| Inputs | 6px | `var(--radius-input)` | Text inputs, selects, number inputs |
+| Cards | 8px | `var(--radius-card)` | Image result cards |
+| Modals | 12px | `var(--radius-modal)` | Modal containers |
+| Badges | 12px | `var(--radius-badge)` | Status badges, floating controls |
+| Pills | 16px | `var(--radius-pill)` | Pill-shaped elements |
+| Circular | 9999px | `var(--radius-circular)` | Avatars, scrollbar thumb |
+
+**Design Principles:**
+- Subtle radii (4px) for interactive elements create professional appearance
+- Medium radii (6px-8px) for inputs and cards balance refinement with approachability
+- Larger radii (12px+) for containers and decorative elements
+- Circular elements (9999px) for avatars and purely decorative items
 
 ### Ant Design Overrides
 
@@ -111,6 +134,16 @@ All colors use CSS variables for easy theme switching:
 - `--color-glass-border`
 - `--color-input-bg`
 - `--color-input-border`
+
+Border radius scale variables (consistent across themes):
+- `--radius-button-primary: 4px`
+- `--radius-button-secondary: 4px`
+- `--radius-input: 6px`
+- `--radius-card: 8px`
+- `--radius-modal: 12px`
+- `--radius-badge: 12px`
+- `--radius-pill: 16px`
+- `--radius-circular: 9999px`
 
 ## Notes
 

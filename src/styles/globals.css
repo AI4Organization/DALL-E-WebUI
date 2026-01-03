@@ -3,6 +3,15 @@
 /* ===== CSS Variables for Themes ===== */
 :root {
   --transition-speed: 0.3s;
+  /* Border Radius Scale */
+  --radius-button-primary: 4px;
+  --radius-button-secondary: 4px;
+  --radius-input: 6px;
+  --radius-card: 8px;
+  --radius-modal: 12px;
+  --radius-badge: 12px;
+  --radius-pill: 16px;
+  --radius-circular: 9999px;
 }
 
 /* Dark Theme */
@@ -153,7 +162,7 @@ body {
   background-color: var(--color-card-bg);
   backdrop-filter: blur(40px);
   border: 1px solid var(--color-glass-border);
-  border-radius: 1rem;
+  border-radius: var(--radius-card);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
@@ -162,7 +171,7 @@ body {
   background-color: var(--color-input-bg);
   backdrop-filter: blur(20px);
   border: 1px solid var(--color-input-border);
-  border-radius: 0.75rem;
+  border-radius: var(--radius-input);
   color: var(--color-text-primary);
   width: 100%;
 }
@@ -224,6 +233,19 @@ body {
 .glow-button:hover {
   box-shadow: 0 0 30px rgba(168, 85, 247, 0.6);
   transform: translateY(-2px);
+}
+
+/* Button Radius Utilities */
+.button-primary {
+  border-radius: var(--radius-button-primary);
+}
+
+.button-secondary {
+  border-radius: var(--radius-button-secondary);
+}
+
+.pill {
+  border-radius: var(--radius-pill);
 }
 
 /* Custom Scrollbar - hidden by default, shown on hover */

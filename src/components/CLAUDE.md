@@ -36,7 +36,7 @@ interface ThemedAppProps {
 - Primary color: `#a855f7` (purple)
 - Dark background: `#0a0a12`
 - Light background: `#f8f9fc`
-- Border radius: 12px
+- Border radius: 6px (global default for Ant Design components)
 
 **Usage:**
 ```tsx

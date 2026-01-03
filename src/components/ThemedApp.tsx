@@ -25,7 +25,7 @@ export function ThemedApp({ children }: ThemedAppProps): React.ReactElement {
       colorTextSecondary: effectiveTheme === 'dark' ? 'rgba(255, 255, 255, 0.65)' : 'rgba(26, 26, 46, 0.7)',
       colorTextTertiary: effectiveTheme === 'dark' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(26, 26, 46, 0.5)',
       colorBorderSecondary: effectiveTheme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.08)',
-      borderRadius: 12,
+      borderRadius: 6,
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     components: {
