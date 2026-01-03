@@ -12,7 +12,6 @@ This directory contains reusable React components for the DALL-E 3 Web UI. All c
 |-----------|---------|-------|
 | `ThemedApp.tsx` | Ant Design ConfigProvider wrapper | `children: ReactNode` |
 | `ThemeToggle.tsx` | Dark/light mode toggle button | None |
-| `ValidationDialog.tsx` | Configuration error modal | `errors: string[]` |
 
 ## Component Details
 
@@ -84,49 +83,6 @@ import { ThemeToggle } from './components/ThemeToggle';
 
 <ThemeToggle />
 ```
-
----
-
-### `ValidationDialog.tsx`
-
-**Purpose:** Modal dialog for displaying configuration errors to users.
-
-**Props:**
-```typescript
-interface ValidationDialogProps {
-  errors: string[];
-  open: boolean;
-  onClose: () => void;
-}
-```
-
-**Features:**
-- Ant Design Modal component
-- Lists all validation errors
-- Clear title and instructions
-- "OK" button to dismiss
-- Warning icon styling
-
-**Error Display:**
-- Each error rendered as a list item
-- Styled with red color for visibility
-- Scrollable for long error lists
-
-**Usage:**
-```tsx
-import { ValidationDialog } from './components/ValidationDialog';
-
-<ValidationDialog
-  errors={['OPENAI_API_KEY is required', 'OPENAI_BASE_URL is required']}
-  open={hasErrors}
-  onClose={() => setShowErrors(false)}
-/>
-```
-
-**Common Errors:**
-- Missing `OPENAI_API_KEY`
-- Invalid `OPENAI_BASE_URL`
-- Missing environment variables
 
 ---
 

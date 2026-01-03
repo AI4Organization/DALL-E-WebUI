@@ -70,6 +70,7 @@ server/
     download.ts      # POST /api/download - Image format conversion
   lib/
     config.ts        # Server configuration utilities
+    openai-client.ts # OpenAI SDK client initialization
     validation.ts    # Type-safe validation functions
   middleware/
     error.ts         # Error handling middleware
@@ -81,7 +82,6 @@ src/
   components/
     ThemedApp.tsx    # Ant Design ConfigProvider wrapper
     ThemeToggle.tsx  # Dark/light mode toggle button
-    ValidationDialog.tsx # Configuration error dialog
   lib/
     theme.tsx        # Theme context and providers
   styles/
@@ -129,6 +129,9 @@ index.html           # HTML template for SPA
 - **API Client**: OpenAI SDK 6.15.0
 - **Image Processing**: sharp 0.34.5
 - **HTTP Client**: axios 1.13.2
+- **Toast Notifications**: sonner 2.0.7
+- **Concurrency Control**: p-limit 7.2.0
+- **Rate Limiting**: express-rate-limit 8.2.1
 - **Runtime**: Node.js >= 24.0.0
 
 ### TypeScript Configuration
@@ -164,20 +167,35 @@ The app features a comprehensive dark/light theme system with:
 | `Select` | Model, quality, size, style, output format, background dropdowns |
 | `Button` | Generate and download buttons |
 | `Card` | Image result cards with actions |
-| `Image` | Image display with preview modal |
-| `Alert` | Error message display |
+| `Modal` | Image preview modal with zoom, pan, and fullscreen controls |
 | `Spin` | Loading indicators |
-| `Modal` | Configuration error dialog |
 | `Row`, `Col` | Responsive grid layout |
-| `Typography` | Text components (Title, Text) |
 | `Space` | Layout spacing |
-| `message` | Toast notifications |
+| `Slider` | Zoom control slider in preview modal |
 | `Tooltip` | Style info tooltip with contextual help |
+| `Input` | Text input components |
+
+### Sonner Toast Notifications
+The app uses `sonner` for toast notifications:
+- Success/error/warning toasts for generation events
+- Custom action buttons (e.g., "Retry" on connection failure)
+- Rich descriptions with detailed error messages
+- Auto-dismissal with configurable duration
 
 ### Framer Motion
-- Used for smooth animations on the theme toggle button
+- Used for smooth animations throughout the app
 - Scale and opacity transitions for sun/moon icons
 - Hover and tap animations for interactive feedback
+- Stagger children animations for card reveals
+- Floating blob animations with continuous rotation
+- Smooth layout transitions for image results
+
+### Rate Limiting
+The backend implements rate limiting using `express-rate-limit`:
+- **100 requests per minute** per IP address
+- Applied to all `/api/*` routes
+- Custom error message with details
+- Standard headers enabled for rate limit info
 
 ### Tailwind CSS
 - Custom animations and transitions
@@ -232,12 +250,15 @@ interface ConfigApiResponse { availableModels: ModelOption[]; baseURL: string; }
 ### Model-Specific Capabilities
 
 **DALL-E 3:**
-- Only supports `n=1` (single image) regardless of the input number
+- Supports `n=1` to `n=10` via parallel API requests (4 concurrent requests using p-limit)
+- Each API request generates one image, but multiple requests run in parallel
 - Prompt character limit: **4000 characters**
 - Quality options: standard, hd
 - Style options: vivid (hyper-realistic), natural (more subtle)
 - Sizes: 1024x1024 (square), 1024x1792 (portrait), 1792x1024 (landscape)
-- Default size: "1024x1024" (Square)
+- Default size: "1792x1024" (Landscape)
+- Returns image URLs (not base64)
+- Progressive image display - images appear as they complete
 
 **DALL-E 2:**
 - Supports `n=1` to `n=10` (multiple images per request)
@@ -261,16 +282,29 @@ interface ConfigApiResponse { availableModels: ModelOption[]; baseURL: string; }
 ### General Notes
 - TypeScript strict mode catches potential null/undefined issues at compile time
 - The app supports multiple base URLs (OpenAI API and OpenRouter)
-- Configuration errors are displayed in a modal dialog to the user
+- Configuration errors are displayed via sonner toast notifications
 - Default model: DALL-E 3
 - Style dropdown shows an info icon with tooltip explaining each style option
-- Image preview modal with zoom controls (scroll to zoom, drag to pan, +/- keys to zoom)
+- **Image Preview Modal Features:**
+  - Zoom controls: Scroll wheel (Ctrl/Cmd + scroll), +/- keys, or slider
+  - Pan: Click and drag when zoomed in or in actual size mode
+  - Fit modes: Contain, Actual (100%), Fill - press 'F' to cycle
+  - Fullscreen toggle: F11 key or button
+  - Navigation: Arrow keys or swipe gestures for multiple images
+  - Keyboard shortcuts: ESC (close), 0 (reset zoom)
+- **Progressive Image Generation:**
+  - DALL-E 3 images appear progressively as they complete
+  - Progress counter shows completed/total images
+  - Failed images can be retried individually
 - Dark/light theme toggle with animated sun/moon icons in the top-right corner
 - Theme preference is saved to localStorage and persists across sessions
 - System preference detection sets initial theme based on user's OS setting
 - Prompt character limit is dynamic based on selected model (1000 for DALL-E 2, 4000 for DALL-E 3, 32000 for GPT Image 1.5)
-- Image count limit is dynamic based on selected model (10 for DALL-E 2, 1 for DALL-E 3, 10 for GPT Image 1.5)
+- Image count limit is dynamic based on selected model (10 for DALL-E 2, 10 for DALL-E 3 via parallel requests, 10 for GPT Image 1.5)
 - Quality dropdown shows for all models, but DALL-E 2 only has "standard" option (parameter not sent to API)
+- Auto-resize textarea expands as user types (up to 400px height)
+- Floating animated blob backgrounds with gradient colors
+- Glass morphism card effects with backdrop blur
 
 ## Migration History
 

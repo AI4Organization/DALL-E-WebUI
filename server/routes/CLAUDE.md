@@ -51,7 +51,7 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 ```typescript
 {
   p: string;          // Prompt (URL-encoded)
-  n: number;          // Number of images
+  n: string;          // Number of images (as string for query param)
   s: string;          // Size: Image dimensions (model-dependent)
   q?: string;         // Quality: 'standard'|'hd' (DALL-E 3) or 'auto'|'high'|'medium'|'low' (GPT Image 1.5)
                       // Note: For DALL-E 2, quality parameter is accepted but NOT sent to API (DALL-E 2 ignores it)
@@ -86,11 +86,14 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 - Comprehensive error handling for API failures
 - Quality parameter is only sent to API for DALL-E 3 and GPT Image 1.5 (DALL-E 2 ignores it)
 
+**Note:** All parameters are passed as query parameters in the URL, not in the request body.
+
 **Model-Specific Behavior:**
 
 | Feature | DALL-E 2 | DALL-E 3 | GPT Image 1.5 |
 |---------|----------|----------|---------------|
-| Max images | 10 | 1 | 10 |
+| Max images (per request) | 10 | 1 | 10 |
+| Max images (via parallel requests) | N/A | 10 (via 4 concurrent requests) | N/A |
 | Prompt limit | 1000 chars | 4000 chars | 32000 chars |
 | Return format | `url` | `url` | `b64_json` (base64) |
 | Quality options | N/A (API ignores) | standard, hd | auto, high, medium, low |
@@ -100,9 +103,9 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 | Background | N/A | N/A | auto, transparent, opaque |
 
 **Validation Rules:**
-- DALL-E 3 only supports `n=1`
-- DALL-E 2 supports `n=1` to `n=10`
-- GPT Image 1.5 supports `n=1` to `n=10`
+- DALL-E 3 API only supports `n=1` per request, but frontend makes parallel requests for multiple images
+- DALL-E 2 supports `n=1` to `n=10` in a single API request
+- GPT Image 1.5 supports `n=1` to `n=10` in a single API request
 - Style is **required** for DALL-E 3
 - Size validation per model
 - Quality/Style only for DALL-E 3
@@ -187,11 +190,11 @@ All routes use the centralized error handler from `middleware/error.ts`:
 All routes follow this pattern:
 
 ```typescript
-import { validateRequestBody } from '../lib/validation';
+import { validateRequest } from '../lib/validation';
 
 router.post('/', async (req, res, next) => {
-  // Validate request body
-  const validationResult = validateRequestBody(req.body);
+  // Validate query parameters
+  const validationResult = validateRequest(req.query);
   if (!validationResult.success) {
     return res.status(400).json({ error: validationResult.error });
   }

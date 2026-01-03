@@ -19,6 +19,7 @@ server/
 │   └── download.ts    # POST /api/download - Image format conversion
 ├── lib/               # Backend utilities and helpers
 │   ├── config.ts      # Configuration management and model options
+│   ├── openai-client.ts # OpenAI SDK client initialization
 │   └── validation.ts  # Type-safe input validation
 └── middleware/        # Express middleware
     └── error.ts       # Centralized error handling
@@ -68,6 +69,7 @@ Health check endpoint for monitoring.
 - **helmet** 8.1.0 - Security headers
 - **compression** 1.8.1 - Response compression
 - **morgan** 1.10.1 - HTTP request logger
+- **express-rate-limit** 8.2.1 - Rate limiting middleware
 - **openai** 6.15.0 - OpenAI SDK
 - **sharp** 0.34.5 - Image processing
 - **@types/express** 5.0.6 - TypeScript definitions
@@ -98,6 +100,7 @@ npm run build:backend
 - Helmet middleware sets security headers
 - Request body size limited to 10MB for image payloads
 - All API routes are under `/api/*` prefix
+- **Rate limiting** applied to all `/api/*` routes (100 requests per minute per IP)
 
 ## Error Handling
 

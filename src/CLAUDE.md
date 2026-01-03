@@ -16,8 +16,7 @@ src/
 ├── App.tsx             # Main application component
 ├── components/         # React UI components
 │   ├── ThemedApp.tsx       # Ant Design ConfigProvider wrapper
-│   ├── ThemeToggle.tsx     # Dark/light mode toggle button
-│   └── ValidationDialog.tsx # Configuration error dialog
+│   └── ThemeToggle.tsx     # Dark/light mode toggle button
 ├── lib/                # Frontend utilities
 │   └── theme.tsx           # Theme context and provider
 └── styles/             # CSS/styling
@@ -42,20 +41,40 @@ Primary UI component containing:
 - Model selection (DALL-E 3, DALL-E 2, GPT Image 1.5)
 - Generation parameters (quality, size, style, output format, background)
 - Generate and download buttons
-- Image results display with preview modal
-- Configuration validation
+- Image results display with enhanced preview modal
+- Progressive image generation with progress tracking
 
 **Key Features:**
 - Uses `API_BASE_URL` environment variable for API calls
 - Implements character count validation (dynamic based on model: 1000 for DALL-E 2, 4000 for DALL-E 3, 32000 for GPT Image 1.5)
 - Shows real-time character counter in the prompt input
-- Shows loading states during generation
-- Displays images with zoom/preview modal
-- Handles error messages with Ant Design Alert
+- Auto-resizing textarea (120px to 400px height)
+- **Parallel Image Generation:**
+  - Uses `p-limit` for concurrency control (4 concurrent requests)
+  - DALL-E 3 generates images in parallel with progressive display
+  - Each image appears as it completes
+  - Progress counter shows completed/total images
+  - Failed images can be retried individually
+- **Toast Notifications (via Sonner):**
+  - Success/error/warning toasts with rich descriptions
+  - Custom action buttons (e.g., "Retry" on connection failure)
+  - Model-specific info messages (e.g., parallel generation notification)
+- **Enhanced Preview Modal:**
+  - Zoom controls (50% to 500%) via slider, +/- keys, or scroll wheel
+  - Pan: Click and drag when zoomed in
+  - Fit modes: Contain, Actual (100%), Fill
+  - Fullscreen toggle (F11)
+  - Image navigation: Arrow keys or swipe gestures
+  - Keyboard shortcuts: ESC (close), 0 (reset zoom), F (cycle fit mode)
 - Supports both image URL format (DALL-E 2, DALL-E 3) and base64 format (GPT Image 1.5)
 - Downloads base64 images directly in browser, URLs via backend conversion
 - Quality dropdown shows for all models (DALL-E 2 shows only "standard" option)
 - Quality parameter is only sent to API for DALL-E 3 and GPT Image 1.5 (DALL-E 2 ignores it)
+- **Visual Effects:**
+  - Floating animated blob backgrounds
+  - Glass morphism cards with backdrop blur
+  - Smooth Framer Motion animations
+  - Gradient text and buttons
 
 ### Component Architecture
 
@@ -71,12 +90,6 @@ Animated toggle button for switching themes.
 - Sun/moon icon transitions
 - localStorage persistence
 - System preference detection
-
-#### `ValidationDialog.tsx`
-Modal dialog for configuration errors.
-- Displays missing/invalid environment variables
-- Provides clear guidance for fixing issues
-- Uses Ant Design Modal component
 
 ### `lib/theme.tsx` - Theme Context
 
@@ -126,6 +139,8 @@ API_BASE_URL=http://localhost:3001  # Backend API base URL
 - **antd** 6.1.3 - UI component library
 - **framer-motion** 12.23.26 - Animation library
 - **axios** 1.13.2 - HTTP client
+- **sonner** 2.0.7 - Toast notifications
+- **p-limit** 7.2.0 - Concurrency control for parallel requests
 
 ## Development
 

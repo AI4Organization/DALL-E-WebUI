@@ -279,7 +279,7 @@ export default function App(): React.ReactElement {
 
   // ============ State ============
   const [prompt, setPrompt] = useState<string>('');
-  const [textAreaHeight, setTextAreaHeight] = useState<number>(120);
+  const [textAreaHeight, setTextAreaHeight] = useState<number>(160);
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-resize textarea based on content
@@ -287,7 +287,7 @@ export default function App(): React.ReactElement {
     const textArea = textAreaRef.current;
     if (textArea && textArea.style) {
       textArea.style.height = 'auto';
-      const newHeight = Math.min(Math.max(textArea.scrollHeight, 120), 400);
+      const newHeight = Math.min(Math.max(textArea.scrollHeight, 160), 400);
       textArea.style.height = `${newHeight}px`;
       setTextAreaHeight(newHeight);
     }
