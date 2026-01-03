@@ -441,6 +441,20 @@ body:hover * {
   color: var(--color-text-primary) !important;
 }
 
+/* Increase Select component height by 8px for better touch targets */
+.ant-select-selector {
+  height: 40px !important; /* Default 32px + 8px = 40px */
+  padding: 5px 11px !important; /* Adjust padding to maintain visual balance */
+}
+
+.ant-select-selection-placeholder {
+  line-height: 30px !important; /* Center placeholder text in increased height */
+}
+
+.ant-select-selection-item {
+  line-height: 30px !important; /* Center selected item text in increased height */
+}
+
 /* Line Clamp Utility */
 .line-clamp-3 {
   display: -webkit-box;
