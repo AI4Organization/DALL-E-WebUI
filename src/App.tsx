@@ -5,7 +5,6 @@ import {
   Button,
   Select,
   Card,
-  Alert,
   Spin,
   Space,
   Row,
@@ -32,7 +31,6 @@ import pLimit from 'p-limit';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { ThemeToggle } from './components/ThemeToggle';
-import { ValidationDialog, createValidationIssue, type ValidationIssue } from './components/ValidationDialog';
 import { useTheme } from './lib/theme';
 import type {
   OpenAIImageResult,
@@ -140,11 +138,13 @@ const getPromptLimit = (modelName: string | null): number => {
 };
 
 // Helper function to get max images for model
+// Note: For DALL-E 3, we allow up to 10 images but handle via parallel requests
+// since the API only supports n=1 per request
 const getMaxImages = (modelName: string | null): number => {
   if (modelName === 'gpt-image-1.5') return 10;
-  if (modelName === 'dall-e-3') return 1;
+  if (modelName === 'dall-e-3') return 10; // Allow up to 10 via parallel requests
   if (modelName === 'dall-e-2') return 10;
-  return 1; // Default conservative
+  return 10; // Default
 };
 
 const STYLE_OPTIONS: { value: ImageStyle; label: string }[] = [
@@ -298,14 +298,10 @@ export default function App(): React.ReactElement {
   const [number, setNumber] = useState<number>(4);
   const [generationItems, setGenerationItems] = useState<ImageGenerationItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<boolean>(false);
-  const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
-  const [showValidationDialog, setShowValidationDialog] = useState<boolean>(false);
   const [isGenerationInProgress, setIsGenerationInProgress] = useState<boolean>(false);
 
   const [model, setModel] = useState<string | null>(null);
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
-  const [configError, setConfigError] = useState<{ error: string; details?: string[] } | null>(null);
   const [configLoading, setConfigLoading] = useState<boolean>(true);
 
   const [quality, setQuality] = useState<ImageQuality | GPTImageQuality>('hd');
@@ -344,16 +340,25 @@ export default function App(): React.ReactElement {
       try {
         const res = await axios.get(`${process.env.API_BASE_URL}/api/config`);
         setAvailableModels(res.data.availableModels);
-        setConfigError(null); // Clear any previous error
         setConfigLoading(false);
       } catch (err) {
         const axiosError = err as { response?: { data?: { error: string; details?: string[] }; status?: number } };
         if (axiosError.response?.status === 500 && axiosError.response.data) {
-          setConfigError(axiosError.response.data);
+          const errorData = axiosError.response.data;
+          toast.error('Server Configuration Error', {
+            description: `${errorData.error}${errorData.details ? '. ' + errorData.details.join(', ') : ''}`,
+            action: {
+              label: 'Retry',
+              onClick: () => window.location.reload(),
+            },
+          });
         } else {
-          setConfigError({
-            error: 'Failed to connect to server',
-            details: ['Please check if the server is running'],
+          toast.error('Failed to connect to server', {
+            description: 'Please check if the server is running',
+            action: {
+              label: 'Retry',
+              onClick: () => window.location.reload(),
+            },
           });
         }
         setConfigLoading(false);
@@ -380,133 +385,88 @@ export default function App(): React.ReactElement {
 
   // ============ Handlers ============
   const getImages = useCallback(async (): Promise<void> => {
-    setError(false);
-    const issues: ValidationIssue[] = [];
+    let hasErrors = false;
 
     // Client-side validation
     if (!model) {
-      issues.push(createValidationIssue(
-        'error',
-        'No Model Selected',
-        'Please select an AI model to generate images.',
-        'Choose a model from the "Model" dropdown above.',
-        'model'
-      ));
+      toast.error('No Model Selected', {
+        description: 'Please select an AI model to generate images. Choose a model from the "Model" dropdown above.',
+      });
+      hasErrors = true;
     }
 
     if (!prompt.trim()) {
-      issues.push(createValidationIssue(
-        'error',
-        'Empty Prompt',
-        'Please describe the image you want to create.',
-        'Enter a detailed description in the "Your Prompt" text area.',
-        'prompt'
-      ));
+      toast.error('Empty Prompt', {
+        description: 'Please describe the image you want to create. Enter a detailed description in the "Your Prompt" text area.',
+      });
+      hasErrors = true;
     } else if (prompt.trim().length < 10) {
-      issues.push(createValidationIssue(
-        'warning',
-        'Prompt Too Short',
-        'Your prompt is quite short. More detailed prompts usually produce better results.',
-        'Try describing your vision in more detail - include style, mood, objects, colors, etc.',
-        'prompt'
-      ));
+      toast.warning('Prompt Too Short', {
+        description: 'Your prompt is quite short. More detailed prompts usually produce better results. Try describing your vision in more detail - include style, mood, objects, colors, etc.',
+      });
     }
 
     // Character count validation (dynamic based on model)
     const charCount = prompt.length;
     const promptLimit = getPromptLimit(model);
     if (charCount > promptLimit) {
-      issues.push(createValidationIssue(
-        'error',
-        'Prompt Too Long',
-        `Your prompt has ${charCount} characters, but the maximum is ${promptLimit} characters for ${model}.`,
-        `Please shorten your prompt to ${promptLimit} characters or fewer.`,
-        'prompt'
-      ));
+      toast.error('Prompt Too Long', {
+        description: `Your prompt has ${charCount} characters, but the maximum is ${promptLimit} characters for ${model}. Please shorten your prompt to ${promptLimit} characters or fewer.`,
+      });
+      hasErrors = true;
     }
 
     // Validate number of images based on model
     const maxImages = getMaxImages(model);
     if (number < 1) {
-      issues.push(createValidationIssue(
-        'error',
-        'Invalid Number',
-        'Number of images must be at least 1.',
-        `Set the number between 1 and ${maxImages}.`,
-        'number'
-      ));
+      toast.error('Invalid Number', {
+        description: `Number of images must be at least 1. Set the number between 1 and ${maxImages}.`,
+      });
+      hasErrors = true;
     }
 
     if (number > maxImages) {
-      issues.push(createValidationIssue(
-        'error',
-        'Too Many Images',
-        `${model} supports a maximum of ${maxImages} image${maxImages !== 1 ? 's' : ''} per request.`,
-        `Reduce the number of images to ${maxImages} or less.`,
-        'number'
-      ));
-    }
-
-    // Model-specific validation
-    if (model === 'dall-e-3' && number > 1) {
-      issues.push(createValidationIssue(
-        'info',
-        'Multiple Images with DALL-E 3',
-        `You requested ${number} images. We'll generate them in parallel and show each one as it completes.`,
-        'Images will appear progressively as they finish - no need to wait for all of them!',
-        'number'
-      ));
-    }
-
-    if (model === 'gpt-image-1.5' && number > 1) {
-      issues.push(createValidationIssue(
-        'info',
-        'Multiple Images with GPT Image 1.5',
-        `You requested ${number} images. We'll generate them in a single request and show all results together.`,
-        'GPT Image 1.5 supports multiple images in one request for faster generation.',
-        'number'
-      ));
+      toast.error('Too Many Images', {
+        description: `${model} supports a maximum of ${maxImages} image${maxImages !== 1 ? 's' : ''} per request. Reduce the number of images to ${maxImages} or less.`,
+      });
+      hasErrors = true;
     }
 
     // Size validation based on model
     if (model === 'dall-e-3' && !DALL_E_3_SIZES.includes(size)) {
-      issues.push(createValidationIssue(
-        'error',
-        'Invalid Size for DALL-E 3',
-        `The size "${size}" is not supported by DALL-E 3.`,
-        'Choose a supported size: 1024x1024, 1792x1024, or 1024x1792.',
-        'size'
-      ));
+      toast.error('Invalid Size for DALL-E 3', {
+        description: `The size "${size}" is not supported by DALL-E 3. Choose a supported size: 1024x1024, 1792x1024, or 1024x1792.`,
+      });
+      hasErrors = true;
     }
 
     if (model === 'gpt-image-1.5' && !GPT_IMAGE_1_5_SIZES.includes(size)) {
-      issues.push(createValidationIssue(
-        'error',
-        'Invalid Size for GPT Image 1.5',
-        `The size "${size}" is not supported by GPT Image 1.5.`,
-        'Choose a supported size: auto, 1024x1024, 1536x1024, or 1024x1536.',
-        'size'
-      ));
+      toast.error('Invalid Size for GPT Image 1.5', {
+        description: `The size "${size}" is not supported by GPT Image 1.5. Choose a supported size: auto, 1024x1024, 1536x1024, or 1024x1536.`,
+      });
+      hasErrors = true;
     }
 
-    // If there are errors, show dialog
-    const errors = issues.filter(i => i.type === 'error');
-    if (errors.length > 0) {
-      setValidationIssues(errors);
-      setShowValidationDialog(true);
+    // If there are errors, show them and stop
+    if (hasErrors) {
       return;
     }
 
-    // If there are warnings, show them but proceed
-    const warnings = issues.filter(i => i.type === 'warning' || i.type === 'info');
-    if (warnings.length > 0) {
-      setValidationIssues(warnings);
-      setShowValidationDialog(true);
+    // Model-specific info messages (show after errors check so they don't block)
+    if (model === 'dall-e-3' && number > 1) {
+      toast.info(`Multiple Images with DALL-E 3`, {
+        description: `You requested ${number} images. We'll generate them in parallel and show each one as it completes. Images will appear progressively as they finish - no need to wait for all of them!`,
+      });
+    }
+
+    if (model === 'gpt-image-1.5' && number > 1) {
+      toast.info(`Multiple Images with GPT Image 1.5`, {
+        description: `You requested ${number} images. We'll generate them in a single request and show all results together. GPT Image 1.5 supports multiple images in one request for faster generation.`,
+      });
     }
 
     // Clear previous results and set loading state
     setGenerationItems([]);
-    setError(false);
     setLoading(true);
     setIsGenerationInProgress(true);
 
@@ -610,7 +570,6 @@ export default function App(): React.ReactElement {
       }
     } catch (err) {
       console.error('Batch generation error:', err);
-      setError(true);
       const errorMessage = getApiErrorMessage(err);
       toast.error(`Generation failed: ${errorMessage}`);
     } finally {
@@ -779,19 +738,6 @@ export default function App(): React.ReactElement {
       {/* Theme Toggle Button */}
       <ThemeToggle />
 
-      {/* Validation Dialog */}
-      <ValidationDialog
-        visible={showValidationDialog}
-        issues={validationIssues}
-        onDismiss={() => setShowValidationDialog(false)}
-        onFix={(field) => {
-          if (field === 'number' && number > 10) setNumber(Math.min(number, 10));
-          if (field === 'number' && number < 1) setNumber(1);
-          if (field === 'size' && model === 'dall-e-3') setSize('1024x1024');
-          if (field === 'size' && model === 'gpt-image-1.5') setSize('auto');
-        }}
-      />
-
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute inset-0 bg-gradient-mesh opacity-50" />
@@ -801,43 +747,6 @@ export default function App(): React.ReactElement {
         <FloatingBlob color="rgba(168, 85, 247, 0.2)" className="w-64 h-64 bottom-0 right-1/3" delay={3} />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--color-background)]/50 to-[var(--color-background)]" />
       </div>
-
-      {/* Configuration Error Modal */}
-      <Modal
-        open={configError !== null}
-        title={
-          <Space className="text-white">
-            <ExclamationCircleOutlined className="text-red-400" />
-            <span>Server Configuration Error</span>
-          </Space>
-        }
-        onCancel={() => setConfigError(null)}
-        footer={[
-          <Button key="retry" onClick={() => {
-            setConfigError(null);
-            setConfigLoading(true);
-            // Re-fetch config by triggering the effect again
-            window.location.reload();
-          }} className="bg-accent-purple border-accent-purple text-white hover:bg-accent-purple/80">
-            Retry
-          </Button>,
-          <Button key="dismiss" onClick={() => setConfigError(null)} className="bg-accent-purple border-accent-purple text-white hover:bg-accent-purple/80">
-            Dismiss
-          </Button>,
-        ]}
-        className="glass-card"
-      >
-        <p className="text-white">{configError?.error}</p>
-        {configError?.details && (
-          <ul className="mt-4 pl-5 space-y-2">
-            {configError.details.map((detail, i) => (
-              <li key={i}>
-                <span className="text-red-400">{detail}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Modal>
 
       {/* Main Content */}
       <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8">
@@ -1110,28 +1019,6 @@ export default function App(): React.ReactElement {
             </div>
           </motion.div>
 
-          {/* Error Display */}
-          <AnimatePresence>
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="mb-8"
-              >
-                <Alert
-                  message="Generation Failed"
-                  description="Something went wrong. Please try again."
-                  type="error"
-                  showIcon
-                  closable
-                  onClose={() => setError(false)}
-                  className="!bg-red-500/10 !border-red-500/30"
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {/* Loading Display */}
           <AnimatePresence>
             {loading && (
@@ -1344,7 +1231,7 @@ export default function App(): React.ReactElement {
           </AnimatePresence>
 
           {/* Empty State - Show before first generation */}
-          {generationItems.length === 0 && !loading && !error && (
+          {generationItems.length === 0 && !loading && (
             <motion.div
               variants={itemVariants}
               className="glass-card p-12 text-center"
