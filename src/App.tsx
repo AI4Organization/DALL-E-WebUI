@@ -311,7 +311,7 @@ export default function App(): React.ReactElement {
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [configLoading, setConfigLoading] = useState<boolean>(true);
 
-  const [quality, setQuality] = useState<ImageQuality | GPTImageQuality>('hd');
+  const [quality, setQuality] = useState<ImageQuality | GPTImageQuality>('standard');
   const [size, setSize] = useState<ImageSize>('1024x1024');
   const [style, setStyle] = useState<ImageStyle>('vivid');
   const [type, setType] = useState<DownloadFormat>('webp');
@@ -335,6 +335,14 @@ export default function App(): React.ReactElement {
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   // ============ Effects ============
+  // Reset size to model's default when model changes
+  useEffect(() => {
+    if (model) {
+      setSize(getDefaultSizeForModel(model));
+    }
+  }, [model]);
+
+  // Fallback: if current size becomes invalid for current model, reset to default
   useEffect(() => {
     if (model && !isSizeValidForModel(size, model)) {
       setSize(getDefaultSizeForModel(model));
@@ -347,7 +355,7 @@ export default function App(): React.ReactElement {
     } else if (model === 'dall-e-2') {
       setQuality('standard');
     } else if (model === 'dall-e-3') {
-      setQuality('hd');
+      setQuality('standard');
     }
   }, [model]);
 
@@ -1150,44 +1158,6 @@ export default function App(): React.ReactElement {
               </Space>
             </div>
           </motion.div>
-
-          {/* Loading Display */}
-          <AnimatePresence>
-            {loading && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="glass-card p-12 mb-8 text-center"
-              >
-                <div className="relative inline-flex items-center justify-center">
-                  <motion.div
-                    className="w-20 h-20 rounded-full"
-                    style={{
-                      background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%)',
-                    }}
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                  />
-                  <motion.div
-                    className="absolute w-16 h-16 rounded-full"
-                    style={{ backgroundColor: 'var(--color-background)' }}
-                    animate={{ scale: [1, 1.1, 1] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                  />
-                  <LoadingOutlined className="absolute text-3xl text-white" />
-                </div>
-                <motion.p
-                  className="mt-6 text-lg text-gray-300"
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  Creating your masterpiece...
-                </motion.p>
-                <p className="text-sm text-gray-500 mt-2">This may take a moment</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* Results Grid */}
           <AnimatePresence>
