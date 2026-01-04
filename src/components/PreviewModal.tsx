@@ -7,10 +7,11 @@ import {
   FullscreenExitOutlined,
   LeftOutlined,
   RightOutlined,
+  LoadingOutlined,
 } from '@ant-design/icons';
 import { Modal, Button, Tooltip, Slider } from 'antd';
 import { motion } from 'framer-motion';
-import { memo, useEffect } from 'react';
+import { memo, useEffect, useState } from 'react';
 
 import type { OpenAIImageResult } from '../../types';
 import type { FitMode } from '../../types';
@@ -41,6 +42,8 @@ export interface PreviewModalProps {
  * - Fit modes: Contain, Actual (100%), Fill
  * - Fullscreen toggle (F11)
  * - Image navigation with arrow keys or swipe gestures
+ * - Progressive loading with blur-up effect
+ * - Loading spinner during image transitions
  * - Keyboard shortcuts: ESC (close), +/- (zoom), 0 (reset), F (fit mode)
  */
 export const PreviewModal = memo<PreviewModalProps>(({
@@ -55,7 +58,6 @@ export const PreviewModal = memo<PreviewModalProps>(({
 
   const {
     previewState,
-    closePreview,
     zoomLevel,
     setZoomLevel,
     zoomIn,
@@ -108,6 +110,33 @@ export const PreviewModal = memo<PreviewModalProps>(({
   const handleFitModeChange = (mode: FitMode) => {
     setFitMode(mode);
   };
+
+  // Loading state for image transitions
+  const [isImageLoading, setIsImageLoading] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(true);
+
+  // Reset loading state when image changes
+  useEffect(() => {
+    const currentImage = navigationImages[currentNavIndex];
+    const currentImageUrl = currentImage ? getDisplayUrl(currentImage) : null;
+
+    if (currentImageUrl) {
+      setIsImageLoading(true);
+      setImageLoaded(false);
+
+      // Simulate progressive loading
+      const img = new Image();
+      img.onload = () => {
+        setIsImageLoading(false);
+        setImageLoaded(true);
+      };
+      img.onerror = () => {
+        setIsImageLoading(false);
+        setImageLoaded(false);
+      };
+      img.src = currentImageUrl;
+    }
+  }, [currentNavIndex, navigationImages, getDisplayUrl]);
 
   // Current image display
   const currentImage = navigationImages[currentNavIndex];
@@ -162,8 +191,33 @@ export const PreviewModal = memo<PreviewModalProps>(({
             }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.3 }}
           >
+            {/* Loading Spinner */}
+            {isImageLoading && (
+              <motion.div
+                className="absolute inset-0 flex items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <div className="relative">
+                  <motion.div
+                    className="w-20 h-20 rounded-full"
+                    style={{
+                      background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%)',
+                    }}
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <LoadingOutlined className="text-4xl text-white" />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Main Image with Blur Effect */}
             <motion.img
               src={currentImageUrl}
               alt={`Preview ${currentNavIndex + 1}`}
@@ -176,8 +230,14 @@ export const PreviewModal = memo<PreviewModalProps>(({
                 transform: `scale(${zoomLevel / 100}) translate(${panPosition.x / (zoomLevel / 100)}px, ${panPosition.y / (zoomLevel / 100)}px)`,
                 transition: isDragging ? 'none' : 'transform 0.1s ease-out',
                 userSelect: 'none',
+                filter: imageLoaded ? 'none' : 'blur(20px)',
+                opacity: imageLoaded ? 1 : 0.5,
               }}
               onDoubleClick={zoomReset}
+              onLoad={() => {
+                setIsImageLoading(false);
+                setImageLoaded(true);
+              }}
             />
           </motion.div>
         )}
