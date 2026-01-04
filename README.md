@@ -44,7 +44,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
    - **Quality**: Standard or HD (DALL-E 3 only)
    - **Size**: Auto, 1024x1024, 1024x1536 (Portrait), or 1536x1024 (Landscape)
    - **Style**: Vivid or Natural (DALL-E 3 only)
-   - **Format**: WebP, PNG, JPG, GIF, or AVIF
+   - **Format**: WebP, PNG, or JPEG
 3. Enter your image description in the prompt field
 4. Click "Generate" to create images
 5. Download generated images in your selected format

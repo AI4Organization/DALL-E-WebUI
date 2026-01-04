@@ -110,7 +110,7 @@ index.html           # HTML template for SPA
 #### Backend
 - `server/index.ts` - Express server with middleware, CORS, route mounting
 - `server/routes/images.ts` - OpenAI SDK integration for DALL-E
-- `server/routes/download.ts` - Sharp image processing (PNG, JPG, GIF, AVIF, WebP)
+- `server/routes/download.ts` - Sharp image processing (WebP, PNG, JPEG)
 - `server/routes/config.ts` - Server configuration and model options
 
 #### Shared

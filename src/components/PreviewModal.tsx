@@ -115,8 +115,8 @@ export const PreviewModal = memo<PreviewModalProps>(({
 
   return (
     <Modal
-      open={previewState !== null}
-      onCancel={closePreview}
+      open={navigationImages.length > 0 && currentNavIndex >= 0}
+      onCancel={onClose}
       footer={null}
       centered
       width="95vw"
@@ -184,11 +184,11 @@ export const PreviewModal = memo<PreviewModalProps>(({
 
         {/* Floating Control Bar - Always Visible */}
         <div
-          className="preview-floating-controls absolute bottom-0 left-0 right-0 flex items-center gap-3 px-6 py-3 rounded-t-[12px] rounded-b-0 backdrop-blur-xl"
+          className="preview-floating-controls absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 rounded-[12px] backdrop-blur-xl"
           style={{
             flexWrap: 'wrap',
             justifyContent: 'center',
-            backgroundColor: theme === 'dark' ? 'rgba(10, 10, 18, 0.3)' : 'rgba(0, 0, 0, 0.2)',
+            backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)',
             border: 'none',
             outline: 'none',
           }}
@@ -316,7 +316,7 @@ export const PreviewModal = memo<PreviewModalProps>(({
           <Tooltip title="Close (ESC)">
             <Button
               type="text"
-              onClick={closePreview}
+              onClick={onClose}
               className={!theme || theme === 'dark' ? '!text-white hover:!bg-red-500/20 !border-none !text-lg' : '!text-gray-900 hover:!bg-red-500/20 !border-none !text-lg'}
             >
               ✕

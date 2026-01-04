@@ -142,8 +142,13 @@ export function triggerDownload(
   filename: string,
   mimeType: string
 ): void {
+  // Extract base64 string from data URL format (data:image/xxx;base64,xxxxx)
+  const base64String = base64Data.includes(',')
+    ? base64Data.split(',')[1]
+    : base64Data;
+
   // Create a blob from the base64 data
-  const byteCharacters = atob(base64Data);
+  const byteCharacters = atob(base64String);
   const byteNumbers = new Array(byteCharacters.length);
   for (let i = 0; i < byteCharacters.length; i++) {
     byteNumbers[i] = byteCharacters.charCodeAt(i);

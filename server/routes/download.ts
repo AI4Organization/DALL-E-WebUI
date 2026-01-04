@@ -40,24 +40,29 @@ async function convertImage(
 
 // POST /api/download - Handles image format conversion
 router.post('/', async (req: Request, res: Response<DownloadApiResponse | { error: string }>) => {
-  const { url, type } = req.body as DownloadApiRequestBody;
+  // Accept both old ({ url, type }) and new ({ imageUrl, format }) parameter names
+  const { url, type, imageUrl, format } = req.body as DownloadApiRequestBody & { imageUrl?: string; format?: string };
 
-  if (!url || !type) {
-    return res.status(400).json({ error: 'Missing required parameters: url and type' });
+  // Use imageUrl/format if provided, otherwise fall back to url/type
+  const finalUrl = imageUrl || url;
+  const finalFormat = (format || type) as ImageOutputFormat;
+
+  if (!finalUrl || !finalFormat) {
+    return res.status(400).json({ error: 'Missing required parameters: imageUrl (or url) and format (or type)' });
   }
 
-  if (!isValidFormat(type)) {
+  if (!isValidFormat(finalFormat)) {
     return res.status(400).json({
       error: `Invalid format. Valid formats: ${VALID_FORMATS.join(', ')}`,
     });
   }
 
   try {
-    const response = await axios.get<Buffer>(url, {
+    const response = await axios.get<Buffer>(finalUrl, {
       responseType: 'arraybuffer',
     });
 
-    const { data, mimeType } = await convertImage(response.data, type);
+    const { data, mimeType } = await convertImage(response.data, finalFormat);
     const base64 = data.toString('base64');
 
     res.status(200).json({

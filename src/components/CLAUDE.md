@@ -160,27 +160,35 @@ export interface PromptInputSectionProps {
 ```typescript
 export interface SettingsGridProps {
   model: string | null;
-  setModel: (model: string) => void;
+  onModelChange: (model: string) => void;
+  availableModels: ModelOption[];
+  configLoading: boolean;
   quality: ImageQuality | GPTImageQuality;
-  setQuality: (quality: ImageQuality | GPTImageQuality) => void;
+  onQualityChange: (quality: ImageQuality | GPTImageQuality) => void;
   size: ImageSize;
-  setSize: (size: ImageSize) => void;
+  onSizeChange: (size: ImageSize) => void;
+  number: number;
+  onNumberChange: (number: number) => void;
   style: ImageStyle;
-  setStyle: (style: ImageStyle) => void;
+  onStyleChange: (style: ImageStyle) => void;
   outputFormat: ImageOutputFormat;
-  setOutputFormat: (format: ImageOutputFormat) => void;
+  onOutputFormatChange: (format: ImageOutputFormat) => void;
   background: GPTImageBackground;
-  setBackground: (bg: GPTImageBackground) => void;
+  onBackgroundChange: (background: GPTImageBackground) => void;
+  isGenerationInProgress: boolean;
 }
 ```
 
 **Features:**
 - Model selection (DALL-E 3, DALL-E 2, GPT Image 1.5)
-- Conditional dropdowns based on selected model:
-  - **DALL-E 3:** Quality, Size, Style
-  - **DALL-E 2:** Quality (standard only), Size
-  - **GPT Image 1.5:** Quality, Size, Output Format, Background
-- Info tooltips for each option
+- Consistent 4-column grid layout for tidy appearance
+- Helper components for code reusability:
+  - `SelectLabel` - Label with optional tooltip
+  - `DisabledControl` - Wraps controls with tooltip when disabled
+  - `SelectControlItem` - Combines label, control wrapper, and column
+- Visual grouping with Divider for model-specific options
+- Semantic predicate functions (shouldShowQuality, shouldShowStyle, shouldShowBackground)
+- Controls disabled during generation with helpful tooltips
 - Custom comparison for React.memo to prevent unnecessary re-renders
 
 **Model-Specific Options:**
@@ -189,7 +197,7 @@ export interface SettingsGridProps {
 | Quality | Standard only | Standard, HD | Auto, High, Medium, Low |
 | Sizes | 256x256, 512x512, 1024x1024 | 1024x1024, 1024x1792, 1792x1024 | Auto, 1024x1024, 1536x1024, 1024x1536 |
 | Style | Not supported | Vivid, Natural | Not supported |
-| Output Format | Not supported | Not supported | PNG, JPEG, WebP |
+| Output Format | WebP, PNG, JPEG | WebP, PNG, JPEG | WebP, PNG, JPEG |
 | Background | Not supported | Not supported | Auto, Transparent, Opaque |
 
 ---
@@ -234,19 +242,12 @@ export interface ImageResultsGridProps {
 **Props:**
 ```typescript
 export interface PreviewModalProps {
-  visible: boolean;
-  imageUrl: string;
-  currentIndex: number;
-  totalImages: number;
-  zoomLevel: number;
-  fitMode: FitMode;
+  navigationImages: OpenAIImageResult[];
+  currentNavIndex: number;
   onClose: () => void;
-  onPrevious: () => void;
-  onNext: () => void;
-  onZoomIn: () => void;
-  onZoomOut: () => void;
-  onZoomReset: () => void;
-  onFitModeChange: (mode: FitMode) => void;
+  onNavigatePrevious: () => void;
+  onNavigateNext: () => void;
+  getDisplayUrl: (result: OpenAIImageResult) => string | null;
 }
 ```
 
@@ -265,9 +266,11 @@ export interface PreviewModalProps {
   - 0: Reset zoom
   - F: Cycle fit modes
 
-**Sub-components:**
-- `ControlBar` - Bottom control bar with zoom, fit, and navigation controls
-- `KeyboardShortcutsHint` - Keyboard shortcut reference modal
+**UI Elements:**
+- **Centered Floating Control Bar** - Pill-style control bar with backdrop blur, centered at bottom
+- **Keyboard Shortcuts Hint** - Top-center overlay showing available keyboard shortcuts
+- Control bar background: White with 0.2 opacity (dark mode), Black with 0.2 opacity (light mode)
+- All corners rounded (12px) for floating appearance
 
 **Lazy Loading:**
 Loaded using `React.lazy()` for code splitting. Initial bundle size reduced by ~70 kB.
