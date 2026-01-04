@@ -1,120 +1,50 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  Input,
-  InputNumber,
-  Button,
-  Select,
-  Card,
-  Spin,
-  Space,
-  Row,
-  Col,
-  Modal,
-  Tooltip,
-  Slider,
-} from 'antd';
 import {
   LoadingOutlined,
-  DownloadOutlined,
   PictureOutlined,
-  ExclamationCircleOutlined,
-  InfoCircleOutlined,
   ThunderboltOutlined,
-  StarOutlined,
-  ZoomInOutlined,
-  ZoomOutOutlined,
-  CompressOutlined,
-  ExpandOutlined,
-  FullscreenOutlined,
-  FullscreenExitOutlined,
-  ReloadOutlined,
-  CloseCircleOutlined,
-  CheckCircleOutlined,
-  LeftOutlined,
-  RightOutlined,
 } from '@ant-design/icons';
+import {
+  Button,
+  Space,
+} from 'antd';
+import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import pLimit from 'p-limit';
-import axios from 'axios';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { toast } from 'sonner';
-import { ThemeToggle } from './components/ThemeToggle';
-import { useTheme } from './lib/theme';
+
 import type {
   OpenAIImageResult,
   ModelOption,
   ImageQuality,
   ImageSize,
   ImageStyle,
-  DownloadFormat,
   ImageGenerationItem,
   ImageGenerationStatus,
   GPTImageQuality,
-  GPTImageOutputFormat,
   ImageOutputFormat,
   GPTImageBackground,
 } from '../types';
 import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../types';
 
-const { TextArea } = Input;
+import { EmptyState } from './components/EmptyState';
+import { ImageResultsGrid } from './components/ImageResultsGrid';
+import { PromptInputSection } from './components/PromptInputSection';
+import { SettingsGrid } from './components/SettingsGrid';
+import { ThemeToggle } from './components/ThemeToggle';
+import { useImageContext } from './contexts/ImageContext';
+import { downloadAndSave } from './lib/api/download';
+import { getImageDisplayUrl, hasDownloadableImage } from './lib/api/image-generation';
+import { ApiError } from './lib/api-client';
+import { useTheme } from './lib/theme';
+
+// Lazy load PreviewModal for code splitting
+const LazyPreviewModal = lazy(() => import('./components/PreviewModal').then(m => ({ default: m.PreviewModal })));
 
 // Get API base URL from definePlugin in rsbuild.config.ts
 declare const process: { env: { API_BASE_URL: string } };
 
 // ============ Constants ============
-const DALL_E_3_QUALITY_OPTIONS: { value: ImageQuality; label: string }[] = [
-  { value: 'standard', label: 'Standard' },
-  { value: 'hd', label: 'HD' },
-];
-
-const DALL_E_2_QUALITY_OPTIONS: { value: ImageQuality; label: string }[] = [
-  { value: 'standard', label: 'Standard' },
-];
-
-const GPT_IMAGE_1_5_QUALITY_OPTIONS: { value: GPTImageQuality; label: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
-];
-
-const getQualityOptions = (modelName: string | null): { value: ImageQuality | GPTImageQuality; label: string }[] => {
-  if (modelName === 'gpt-image-1.5') {
-    return GPT_IMAGE_1_5_QUALITY_OPTIONS;
-  }
-  if (modelName === 'dall-e-2') {
-    return DALL_E_2_QUALITY_OPTIONS;
-  }
-  return DALL_E_3_QUALITY_OPTIONS;
-};
-
-const getSizeOptions = (modelName: string | null): { value: ImageSize; label: string }[] => {
-  if (modelName === 'gpt-image-1.5') {
-    return GPT_IMAGE_1_5_SIZES.map((size) => ({
-      value: size,
-      label: size === 'auto' ? 'Auto' :
-             size === '1024x1024' ? '1024 x 1024 (Square)' :
-             size === '1536x1024' ? '1536 x 1024 (Landscape)' :
-             size === '1024x1536' ? '1024 x 1536 (Portrait)' :
-             size.replace('x', ' x '),
-    }));
-  }
-  if (modelName === 'dall-e-2') {
-    return DALL_E_2_SIZES.map((size) => ({
-      value: size,
-      label: size === '256x256' ? '256 x 256' :
-             size === '512x512' ? '512 x 512' :
-             size === '1024x1024' ? '1024 x 1024 (Square)' :
-             size.replace('x', ' x '),
-    }));
-  }
-  return DALL_E_3_SIZES.map((size) => ({
-    value: size,
-    label: size === '1024x1024' ? '1024 x 1024 (Square)' :
-           size === '1024x1792' ? '1024 x 1792 (Portrait)' :
-           size === '1792x1024' ? '1792 x 1024 (Landscape)' :
-           size.replace('x', ' x '),
-  }));
-};
 
 const isSizeValidForModel = (size: ImageSize, modelName: string | null): boolean => {
   if (modelName === 'gpt-image-1.5') {
@@ -128,13 +58,13 @@ const isSizeValidForModel = (size: ImageSize, modelName: string | null): boolean
 
 const getDefaultSizeForModel = (modelName: string | null): ImageSize => {
   if (modelName === 'gpt-image-1.5') {
-    return GPT_IMAGE_1_5_SIZES[2]; // '1536x1024' (Landscape)
+    return GPT_IMAGE_1_5_SIZES[2]!; // '1536x1024' (Landscape)
   }
   if (modelName === 'dall-e-3') {
-    return DALL_E_3_SIZES[2]; // '1792x1024' (Landscape)
+    return DALL_E_3_SIZES[2]!; // '1792x1024' (Landscape)
   }
   // DALL-E 2 defaults to largest square (only square sizes available)
-  return DALL_E_2_SIZES[2]; // '1024x1024'
+  return DALL_E_2_SIZES[2]!; // '1024x1024'
 };
 
 // Helper function to get prompt limit for model
@@ -155,24 +85,10 @@ const getMaxImages = (modelName: string | null): number => {
   return 10; // Default
 };
 
-const STYLE_OPTIONS: { value: ImageStyle; label: string }[] = [
-  { value: 'vivid', label: 'Vivid' },
-  { value: 'natural', label: 'Natural' },
-];
 
 // Universal output format options for all models (API-supported formats only)
-const OUTPUT_FORMAT_OPTIONS: { value: ImageOutputFormat; label: string }[] = [
-  { value: 'webp', label: 'WebP' },
-  { value: 'png', label: 'PNG' },
-  { value: 'jpeg', label: 'JPEG' },
-];
 
 // GPT Image 1.5 background options
-const GPT_IMAGE_1_5_BACKGROUND_OPTIONS: { value: GPTImageBackground; label: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'transparent', label: 'Transparent' },
-  { value: 'opaque', label: 'Opaque' },
-];
 
 // ============ Animation Variants ============
 const containerVariants = {
@@ -195,35 +111,7 @@ const itemVariants = {
   },
 };
 
-const blobVariants = {
-  animate: {
-    scale: [1, 1.2, 1],
-    rotate: [0, 90, 0],
-    transition: {
-      duration: 8,
-      repeat: Infinity,
-      ease: 'easeInOut' as const,
-    },
-  },
-};
-
 // ============ Helper Functions ============
-// Get displayable URL from OpenAI image result (handles both url and b64_json formats)
-const getImageDisplayUrl = (result: OpenAIImageResult): string | undefined => {
-  if (result.url) return result.url;
-  if (result.b64_json) {
-    // GPT Image 1.5 returns base64-encoded images
-    // Default to PNG for b64_json as it's the most common format
-    return `data:image/png;base64,${result.b64_json}`;
-  }
-  return undefined;
-};
-
-// Check if result has a downloadable image source
-const hasDownloadableImage = (result: OpenAIImageResult): boolean => {
-  return !!result.url || !!result.b64_json;
-};
-
 // Extract user-friendly error message from API error response
 const getApiErrorMessage = (err: unknown): string => {
   // Check if it's an axios error with response data
@@ -247,23 +135,31 @@ const getApiErrorMessage = (err: unknown): string => {
 };
 
 // ============ Floating Blob Component ============
+// Optimized: Using CSS animations instead of Framer Motion for better performance
 const FloatingBlob: React.FC<{ className?: string; color: string; delay?: number }> = ({ className, color, delay = 0 }) => (
-  <motion.div
-    className={`absolute rounded-full blur-3xl ${className}`}
+  <div
+    className={`absolute rounded-full blur-3xl floating-blob ${className}`}
     style={{
       background: color,
-      opacity: 'var(--blob-opacity)'
+      opacity: 'var(--blob-opacity)',
+      animationDelay: `${delay}s`,
+      willChange: 'transform',
     }}
-    variants={blobVariants}
-    animate="animate"
-    initial={{ scale: 1, rotate: 0 }}
-    transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' as const, delay }}
   />
 );
 
 // ============ Main Component ============
 export default function App(): React.ReactElement {
-  const { theme } = useTheme();
+  useTheme();
+  const {
+    previewImage,
+    navigationImages,
+    currentNavIndex,
+    openPreview: openPreviewContext,
+    closePreview,
+    navigatePrevious: handlePreviousImage,
+    navigateNext: handleNextImage,
+  } = useImageContext();
 
   // Set document title
   useEffect(() => {
@@ -272,28 +168,6 @@ export default function App(): React.ReactElement {
 
   // ============ State ============
   const [prompt, setPrompt] = useState<string>('');
-  const [textAreaHeight, setTextAreaHeight] = useState<number>(160);
-  const textAreaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Auto-resize textarea based on content
-  const autoResizeTextArea = useCallback(() => {
-    const textArea = textAreaRef.current;
-    if (textArea && textArea.style) {
-      textArea.style.height = 'auto';
-      const newHeight = Math.min(Math.max(textArea.scrollHeight, 160), 400);
-      textArea.style.height = `${newHeight}px`;
-      setTextAreaHeight(newHeight);
-    }
-  }, []);
-
-  // Update textarea height when prompt changes
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const rafId = requestAnimationFrame(() => {
-      autoResizeTextArea();
-    });
-    return () => cancelAnimationFrame(rafId);
-  }, [prompt, autoResizeTextArea]);
 
   const [number, setNumber] = useState<number>(4);
   const [generationItems, setGenerationItems] = useState<ImageGenerationItem[]>([]);
@@ -311,20 +185,19 @@ export default function App(): React.ReactElement {
   const [background, setBackground] = useState<GPTImageBackground>('auto');
 
   // Image preview state
-  const [previewImage, setPreviewImage] = useState<{ url: string; index: number } | null>(null);
-  const [navigationImages, setNavigationImages] = useState<OpenAIImageResult[]>([]);
-  const [currentNavIndex, setCurrentNavIndex] = useState<number>(0);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
 
   // Zoom & Pan State
-  const [zoomLevel, setZoomLevel] = useState<number>(100);  // 50% to 500%
-  const [panPosition, setPanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [, setZoomLevel] = useState<number>(100);  // 50% to 500%
+  const [, setPanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [, setIsDragging] = useState<boolean>(false);
   const [fitMode, setFitMode] = useState<'contain' | 'actual' | 'fill'>('contain');
 
   // Fullscreen State
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // ============ Memoized Values ============
+  // Memoize prompt limit to avoid recomputing on every render
+  const promptLimit = useMemo(() => getPromptLimit(model), [model]);
 
   // ============ Effects ============
   // Reset size to model's default when model changes
@@ -607,16 +480,25 @@ export default function App(): React.ReactElement {
         toast.success('Image downloaded successfully');
       } else {
         // For DALL-E 2/3 (URL images), use backend for format conversion
-        const res = await axios.post(`${process.env.API_BASE_URL}/api/download`, { url: imageUrl, type: outputFormat as DownloadFormat });
-        const link = document.createElement('a');
-        link.href = res.data.result;
-        link.download = `${prompt}.${outputFormat}`;
-        link.click();
+        await downloadAndSave({
+          imageUrl,
+          format: outputFormat,
+          filename: `${prompt}.${outputFormat}`,
+        });
         toast.success('Image downloaded successfully');
       }
     } catch (err) {
-      console.error('Download error:', err);
-      toast.error('Failed to download image');
+      // Handle ApiError
+      if (err instanceof ApiError) {
+        const userMessage = err.getUserMessage();
+        toast.error('Failed to download image', {
+          description: userMessage,
+        });
+      } else {
+        // Handle unknown errors
+        console.error('Download error:', err);
+        toast.error('Failed to download image');
+      }
     }
   }, [prompt, outputFormat]);
 
@@ -676,12 +558,12 @@ export default function App(): React.ReactElement {
     }
   }, [prompt, quality, size, model, style, outputFormat, background]);
 
-  const handleGenerate = (): void => {
+  const handleGenerate = useCallback((): void => {
     void getImages();
-  };
+  }, [getImages]);
 
   // ============ Preview Handlers ============
-  const openPreview = (clickedResult: OpenAIImageResult, clickedIndex: number): void => {
+  const openPreview = useCallback((clickedResult: OpenAIImageResult): void => {
     // Extract all successfully generated images
     const allSuccessfulImages = generationItems
       .filter(item => item.status === 'success' && item.result)
@@ -700,69 +582,12 @@ export default function App(): React.ReactElement {
       return false;
     });
 
-    // Set all state in the right order
-    setNavigationImages(allSuccessfulImages);
-    setCurrentNavIndex(clickedNavIndex >= 0 ? clickedNavIndex : 0);
-
-    // Set previewImage with the correct URL from the navigation array
+    // Use context's openPreview with the computed values
     const targetImage = allSuccessfulImages[clickedNavIndex >= 0 ? clickedNavIndex : 0];
-    setPreviewImage({
-      url: getImageDisplayUrl(targetImage) ?? '',
-      index: clickedNavIndex >= 0 ? clickedNavIndex : 0
-    });
-  };
-
-  const closePreview = (): void => {
-    setPreviewImage(null);
-    setNavigationImages([]);
-    setCurrentNavIndex(0);
-  };
-
-  const handlePreviousImage = (): void => {
-    if (currentNavIndex > 0) {
-      const newIndex = currentNavIndex - 1;
-      const prevImage = navigationImages[newIndex];
-      setCurrentNavIndex(newIndex);
-      setPreviewImage({
-        url: getImageDisplayUrl(prevImage) ?? '',
-        index: newIndex
-      });
+    if (targetImage) {
+      openPreviewContext(targetImage, clickedNavIndex >= 0 ? clickedNavIndex : 0, allSuccessfulImages);
     }
-  };
-
-  const handleNextImage = (): void => {
-    if (currentNavIndex < navigationImages.length - 1) {
-      const newIndex = currentNavIndex + 1;
-      const nextImage = navigationImages[newIndex];
-      setCurrentNavIndex(newIndex);
-      setPreviewImage({
-        url: getImageDisplayUrl(nextImage) ?? '',
-        index: newIndex
-      });
-    }
-  };
-
-  const handleTouchStart = (e: React.TouchEvent): void => {
-    setTouchStart(e.touches[0].clientX);
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent): void => {
-    if (touchStart === null) return;
-
-    const touchEnd = e.changedTouches[0].clientX;
-    const diff = touchStart - touchEnd;
-    const SWIPE_THRESHOLD = 50;
-
-    if (Math.abs(diff) > SWIPE_THRESHOLD) {
-      if (diff > 0) {
-        handleNextImage();
-      } else {
-        handlePreviousImage();
-      }
-    }
-
-    setTouchStart(null);
-  };
+  }, [generationItems, openPreviewContext]);
 
   // ============ Zoom & Pan Handlers ============
   const handleZoomIn = useCallback((): void => {
@@ -793,30 +618,6 @@ export default function App(): React.ReactElement {
     }
   }, []);
 
-  const handleWheel = useCallback((e: React.WheelEvent): void => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -25 : 25;
-      setZoomLevel(prev => Math.min(Math.max(prev + delta, 50), 500));
-    }
-  }, []);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent): void => {
-    if (zoomLevel > 100 || fitMode === 'actual') {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - panPosition.x, y: e.clientY - panPosition.y });
-    }
-  }, [zoomLevel, fitMode, panPosition]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent): void => {
-    if (isDragging) {
-      setPanPosition({
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y,
-      });
-    }
-  }, [isDragging, dragStart]);
-
   const handleMouseUp = useCallback((): void => {
     setIsDragging(false);
   }, []);
@@ -826,7 +627,7 @@ export default function App(): React.ReactElement {
   }, []);
 
   // Update keyboard shortcuts
-  const handleKeyDown = (e: KeyboardEvent): void => {
+  const handleKeyDown = useCallback((e: KeyboardEvent): void => {
     if (!previewImage) return;
 
     // Navigation
@@ -842,8 +643,13 @@ export default function App(): React.ReactElement {
     // Fit mode
     if (e.key === 'f') {
       const modes: Array<'contain' | 'actual' | 'fill'> = ['contain', 'actual', 'fill'];
-      const currentIdx = modes.indexOf(fitMode);
-      handleFitModeChange(modes[(currentIdx + 1) % modes.length]);
+      const currentIdx = fitMode !== undefined ? modes.indexOf(fitMode) : 0;
+      if (currentIdx >= 0) {
+        const nextMode = modes[(currentIdx + 1) % modes.length]!;
+        if (nextMode) {
+          handleFitModeChange(nextMode);
+        }
+      }
     }
 
     // Fullscreen
@@ -851,7 +657,7 @@ export default function App(): React.ReactElement {
       e.preventDefault();
       handleFullscreenToggle();
     }
-  };
+  }, [previewImage, closePreview, handlePreviousImage, handleNextImage, handleZoomIn, handleZoomOut, handleZoomReset, handleFitModeChange, fitMode, handleFullscreenToggle]);
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
@@ -875,7 +681,7 @@ export default function App(): React.ReactElement {
         <FloatingBlob color="rgba(236, 72, 153, 0.3)" className="w-80 h-80 top-1/3 right-1/4" delay={1} />
         <FloatingBlob color="rgba(34, 211, 211, 0.3)" className="w-72 h-72 bottom-1/4 left-1/3" delay={2} />
         <FloatingBlob color="rgba(168, 85, 247, 0.2)" className="w-64 h-64 bottom-0 right-1/3" delay={3} />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--color-background)]/50 to-[var(--color-background)]" />
+        <div className="absolute inset-0 bg-linear-to-b from-transparent via-(--color-background)/50 to-(--color-background)" />
       </div>
 
       {/* Main Content */}
@@ -919,189 +725,33 @@ export default function App(): React.ReactElement {
 
               <Space orientation="vertical" size="large" className="w-full">
                 {/* Prompt Input with Floating Effect */}
-                <motion.div
-                  className="relative"
-                  whileFocus={{ scale: 1.01 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-                >
-                  <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                    <PictureOutlined className="text-accent-purple" />
-                    Your Prompt
-                  </label>
-                  <TextArea
-                    ref={textAreaRef}
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="A futuristic city at sunset, with flying cars and neon lights reflecting off glass buildings..."
-                    autoSize={false}
-                    maxLength={getPromptLimit(model)}
-                    style={{ height: textAreaHeight, overflowY: 'auto' }}
-                    className="glass-input !text-base resize-none"
-                  />
-                  {/* Custom character count display */}
-                  <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-gray-500">
-                    <span>{prompt.length} / {getPromptLimit(model)} characters</span>
-                    <StarOutlined className="text-accent-cyan ml-2" />
-                  </div>
-                </motion.div>
+                <PromptInputSection
+                  prompt={prompt}
+                  onPromptChange={setPrompt}
+                  maxLength={promptLimit}
+                  model={model}
+                />
 
                 {/* Settings Grid */}
-                <Row gutter={[16, 16]}>
-                  {/* Model Selection */}
-                  <Col xs={24} sm={12} md={6}>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Model
-                    </label>
-                  {configLoading ? (
-                    <Select
-                      disabled
-                      placeholder="Loading models..."
-                      className="w-full"
-                    />
-                  ) : model ? (
-                    <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
-                      <Select
-                        value={model}
-                        onChange={setModel}
-                        options={availableModels}
-                        placeholder="Select a model"
-                        disabled={isGenerationInProgress}
-                        className="w-full"
-                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                      />
-                    </Tooltip>
-                  ) : (
-                    <Select
-                      disabled
-                      placeholder="Select a model"
-                      className="w-full"
-                    />
-                  )}
-                  </Col>
-
-                  {/* Quality (DALL-E 2, DALL-E 3 and GPT Image 1.5) */}
-                  {(model === 'dall-e-2' || model === 'dall-e-3' || model === 'gpt-image-1.5') && (
-                    <Col xs={24} sm={12} md={6}>
-                      <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Quality
-                      </label>
-                      <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
-                        <Select
-                          value={quality}
-                          onChange={setQuality}
-                          options={getQualityOptions(model)}
-                          disabled={isGenerationInProgress}
-                          className="w-full"
-                          popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                        />
-                      </Tooltip>
-                    </Col>
-                  )}
-
-                  {/* Size */}
-                  <Col xs={24} sm={12} md={6}>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Size
-                    </label>
-                    <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
-                      <Select<ImageSize>
-                        value={size}
-                        onChange={setSize}
-                        options={getSizeOptions(model)}
-                        disabled={isGenerationInProgress}
-                        className="w-full"
-                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                      />
-                    </Tooltip>
-                  </Col>
-
-                  {/* Number of Images */}
-                  <Col xs={24} sm={12} md={model === 'gpt-image-1.5' ? 6 : 8}>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                      Number of Images
-                    </label>
-                    <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
-                      <InputNumber
-                        value={number}
-                        onChange={(val) => setNumber(val ?? 1)}
-                        min={1}
-                        max={getMaxImages(model)}
-                        disabled={isGenerationInProgress}
-                        className="w-full"
-                      />
-                    </Tooltip>
-                  </Col>
-
-                  {/* Style (DALL-E 3 only) */}
-                  {model === 'dall-e-3' && (
-                    <Col xs={24} sm={12} md={6}>
-                      <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                        Style
-                        <Tooltip
-                          title={
-                            style === 'vivid'
-                              ? 'Vivid: Generates hyper-real and dramatic images with intense details'
-                              : 'Natural: Produces more natural, less hyper-real looking images'
-                          }
-                        >
-                          <InfoCircleOutlined className="text-accent-cyan cursor-help" />
-                        </Tooltip>
-                      </label>
-                      <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
-                        <Select<ImageStyle>
-                          value={style}
-                          onChange={setStyle}
-                          options={STYLE_OPTIONS}
-                          disabled={isGenerationInProgress}
-                          className="w-full"
-                          popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                        />
-                      </Tooltip>
-                    </Col>
-                  )}
-
-                  {/* Output Format (All models) */}
-                  <Col xs={24} sm={12} md={model === 'gpt-image-1.5' ? 6 : 4}>
-                    <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                      Output Format
-                      <Tooltip title="Format of the generated image">
-                        <InfoCircleOutlined className="text-accent-cyan cursor-help" />
-                      </Tooltip>
-                    </label>
-                    <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
-                      <Select<ImageOutputFormat>
-                        value={outputFormat}
-                        onChange={setOutputFormat}
-                        options={OUTPUT_FORMAT_OPTIONS}
-                        disabled={isGenerationInProgress}
-                        className="w-full"
-                        popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                      />
-                    </Tooltip>
-                  </Col>
-
-                  {/* Background (GPT Image 1.5 only) */}
-                  {model === 'gpt-image-1.5' && (
-                    <Col xs={24} sm={12} md={6}>
-                      <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                        Background
-                        <Tooltip title="Control the transparency of the generated image background">
-                          <InfoCircleOutlined className="text-accent-cyan cursor-help" />
-                        </Tooltip>
-                      </label>
-                      <Tooltip title={isGenerationInProgress ? 'Please wait for current generation to complete' : ''}>
-                        <Select<GPTImageBackground>
-                          value={background}
-                          onChange={setBackground}
-                          options={GPT_IMAGE_1_5_BACKGROUND_OPTIONS}
-                          disabled={isGenerationInProgress}
-                          className="w-full"
-                          popupClassName={theme === 'dark' ? 'dark-select-dropdown' : 'light-select-dropdown'}
-                        />
-                      </Tooltip>
-                    </Col>
-                  )}
-                </Row>
+                <SettingsGrid
+                  model={model}
+                  onModelChange={setModel}
+                  availableModels={availableModels}
+                  configLoading={configLoading}
+                  quality={quality}
+                  onQualityChange={setQuality}
+                  size={size}
+                  onSizeChange={setSize}
+                  number={number}
+                  onNumberChange={setNumber}
+                  style={style}
+                  onStyleChange={setStyle}
+                  outputFormat={outputFormat}
+                  onOutputFormatChange={setOutputFormat}
+                  background={background}
+                  onBackgroundChange={setBackground}
+                  isGenerationInProgress={isGenerationInProgress}
+                />
 
                 {/* Generate Button */}
                 <motion.div
@@ -1129,196 +779,24 @@ export default function App(): React.ReactElement {
               </Space>
             </div>
           </motion.div>
-
           {/* Results Grid */}
           <AnimatePresence>
             {generationItems.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="mb-8"
-              >
-                {/* Progress Counter */}
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-2xl font-bold text-white flex items-center gap-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                    <StarOutlined className="text-accent-cyan" />
-                    Generated Images
-                    <span className="text-sm font-normal text-gray-500">
-                      ({generationItems.length} image{generationItems.length !== 1 ? 's' : ''})
-                    </span>
-                  </h3>
-                  {/* Progress Counter */}
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const completedCount = generationItems.filter(i => i.status === 'success').length;
-                      const failedCount = generationItems.filter(i => i.status === 'error').length;
-                      const totalCount = generationItems.length;
-                      const inProgress = generationItems.some(i => i.status === 'pending' || i.status === 'loading');
-
-                      if (inProgress || completedCount > 0 || failedCount > 0) {
-                        return (
-                          <motion.span
-                            key={`progress-${completedCount}-${failedCount}`}
-                            initial={{ scale: 0.9, opacity: 0.7 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            className="text-sm font-medium px-4 py-2 rounded-full bg-glass-light backdrop-blur-md border border-glass-border"
-                          >
-                            <span className="text-gray-300">
-                              Generated: <span className="text-accent-cyan font-bold">{completedCount}</span>/{totalCount}
-                            </span>
-                            {failedCount > 0 && (
-                              <span className="ml-3 text-red-400">
-                                ({failedCount} failed)
-                              </span>
-                            )}
-                          </motion.span>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
-                </div>
-
-                <Row gutter={[16, 16]}>
-                  {generationItems.map((item, index) => (
-                    <Col xs={24} sm={12} lg={8} key={item.id}>
-                      <motion.div
-                        initial={{ opacity: 0, y: 30 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05, type: 'spring', stiffness: 100 }}
-                        whileHover={{ y: -8 }}
-                      >
-                        {/* Loading Card */}
-                        {(item.status === 'pending' || item.status === 'loading') && (
-                          <Card className="glass-card overflow-hidden !border-0">
-                            <div className="flex flex-col items-center justify-center py-12" style={{ minHeight: 360 }}>
-                              <div className="relative">
-                                <motion.div
-                                  className="w-16 h-16 rounded-full"
-                                  style={{
-                                    background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%)',
-                                  }}
-                                  animate={{ rotate: 360 }}
-                                  transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                                />
-                                <div className="absolute inset-0 flex items-center justify-center">
-                                  <LoadingOutlined className="text-2xl text-white" />
-                                </div>
-                              </div>
-                              <h4 className="text-white font-semibold text-lg mt-4 mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                                Image #{item.id + 1}
-                              </h4>
-                              <p className="text-gray-400 text-sm">
-                                {item.status === 'pending' ? 'Waiting to start...' : 'Generating...'}
-                              </p>
-                            </div>
-                          </Card>
-                        )}
-
-                        {/* Error Card */}
-                        {item.status === 'error' && (
-                          <Card className="glass-card overflow-hidden !border-0 !border-red-500/30">
-                            <div className="flex flex-col items-center justify-center py-8 text-center" style={{ minHeight: 360 }}>
-                              <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
-                                <CloseCircleOutlined className="text-4xl text-red-400" />
-                              </div>
-                              <h4 className="text-white font-semibold text-lg mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                                Image #{item.id + 1}
-                              </h4>
-                              <p className="text-red-400 text-sm mb-4 px-4">
-                                {item.error || 'Generation failed'}
-                              </p>
-                              <Button
-                                type="primary"
-                                icon={<ReloadOutlined />}
-                                onClick={() => void retryImage(item.id)}
-                                className="!bg-accent-purple !border-accent-purple hover:!bg-accent-purple/80"
-                              >
-                                Retry
-                              </Button>
-                            </div>
-                          </Card>
-                        )}
-
-                        {/* Success Card */}
-                        {item.status === 'success' && item.result && (() => {
-                          const imageUrl = getImageDisplayUrl(item.result);
-                          const canDownload = hasDownloadableImage(item.result);
-                          return imageUrl ? (
-                            <Card
-                              hoverable
-                              className="glass-card overflow-hidden !border-0"
-                              cover={
-                                <div
-                                  className="relative overflow-hidden cursor-pointer"
-                                  style={{ backgroundColor: 'var(--color-card-bg)' }}
-                                  onClick={() => openPreview(item.result, item.id)}
-                                >
-                                  <img
-                                    src={imageUrl}
-                                    alt={`Generated image ${item.id + 1}`}
-                                    className="!w-full transition-transform duration-300 hover:scale-105"
-                                    style={{ height: 280, objectFit: 'cover' }}
-                                  />
-                                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-background)] via-transparent to-transparent opacity-60" />
-                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
-                                    <ZoomInOutlined className="text-white text-4xl drop-shadow-lg" />
-                                  </div>
-                                  <div className="absolute top-3 right-3 flex items-center gap-2 bg-emerald-500/90 backdrop-blur-md rounded-full px-3 py-1 shadow-lg">
-                                    <CheckCircleOutlined className="text-white text-sm" />
-                                    <span className="text-white text-xs font-medium">Ready</span>
-                                  </div>
-                                </div>
-                              }
-                              actions={[
-                                <Button
-                                  key="download"
-                                  type="primary"
-                                  icon={<DownloadOutlined />}
-                                  disabled={!canDownload}
-                                  onClick={() => canDownload ? void download(imageUrl) : undefined}
-                                  className="!bg-accent-purple !border-accent-purple hover:!bg-accent-purple/80"
-                                >
-                                  Download
-                                </Button>,
-                              ]}
-                            >
-                            <div className="text-white">
-                              <h4 className="font-semibold text-lg mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                                Image #{item.id + 1}
-                              </h4>
-                              <p className="text-gray-400 text-sm line-clamp-3">
-                                {item.result.revised_prompt ?? prompt}
-                              </p>
-                            </div>
-                          </Card>
-                          ) : null;
-                        })()}
-                      </motion.div>
-                    </Col>
-                  ))}
-                </Row>
-              </motion.div>
+              <ImageResultsGrid
+                items={generationItems}
+                prompt={prompt}
+                onDownload={download}
+                onPreview={openPreview}
+                onRetry={retryImage}
+                getDisplayUrl={getImageDisplayUrl}
+                hasDownloadableImage={hasDownloadableImage}
+              />
             )}
           </AnimatePresence>
 
           {/* Empty State - Show before first generation */}
           {generationItems.length === 0 && !loading && (
-            <motion.div
-              variants={itemVariants}
-              className="glass-card p-12 text-center"
-            >
-              <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-glow flex items-center justify-center opacity-50">
-                <PictureOutlined className="text-5xl text-white" />
-              </div>
-              <h3 className="text-xl font-semibold text-white mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
-                Ready to Create
-              </h3>
-              <p className="text-gray-400 max-w-md mx-auto">
-                Enter a prompt above and configure your settings to generate stunning AI-powered images.
-              </p>
-            </motion.div>
+            <EmptyState variants={itemVariants} />
           )}
         </motion.div>
 
@@ -1334,239 +812,18 @@ export default function App(): React.ReactElement {
       </div>
 
       {/* Enhanced Image Preview Modal with Zoom/Pan */}
-      <Modal
-        open={previewImage !== null}
-        onCancel={closePreview}
-        footer={null}
-        centered
-        width="95vw"
-        style={{ maxWidth: '1920px', top: 20 }}
-        className="image-preview-modal"
-        closeIcon={null}
-        title={null}
-        styles={{
-          content: {
-            background: 'transparent',
-            padding: 0,
-            overflow: 'hidden',
-          },
-        }}
-        rootClassName="image-preview-modal-root"
-        wrapClassName="image-preview-modal-wrap"
-      >
-        {/* Image Container with Zoom/Pan */}
-        <div
-          className="relative preview-image-container"
-          style={{
-            backgroundColor: theme === 'dark' ? 'rgba(10, 10, 18, 0.3)' : 'rgba(248, 249, 252, 0.3)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            height: '90vh',
-            borderRadius: '12px',
-            overflow: 'hidden',
-            cursor: isDragging ? 'grabbing' : (zoomLevel > 100 || fitMode === 'actual') ? 'grab' : 'default',
-          }}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onWheel={handleWheel}
-          onTouchStart={handleTouchStart}
-          onTouchEnd={handleTouchEnd}
-        >
-          {previewImage && navigationImages[currentNavIndex] && (() => {
-            const currentImage = navigationImages[currentNavIndex];
-            const currentImageUrl = getImageDisplayUrl(currentImage);
-            return currentImageUrl ? (
-              <motion.div
-                key={currentImageUrl}
-                className="preview-image-wrapper"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '100%',
-                  width: '100%',
-                }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.2 }}
-              >
-                <motion.img
-                  src={currentImageUrl}
-                  alt={`Preview ${currentNavIndex + 1}`}
-                  draggable={false}
-                  className="preview-image"
-                  style={{
-                    maxWidth: fitMode === 'fill' ? '100%' : '100%',
-                    maxHeight: fitMode === 'fill' ? '100%' : '100%',
-                    objectFit: fitMode === 'contain' ? 'contain' : fitMode === 'fill' ? 'fill' : 'none',
-                    transform: `scale(${zoomLevel / 100}) translate(${panPosition.x / (zoomLevel / 100)}px, ${panPosition.y / (zoomLevel / 100)}px)`,
-                    transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-                    userSelect: 'none',
-                    WebkitUserDrag: 'none' as const,
-                  }}
-                  onDoubleClick={handleZoomReset}
-                />
-              </motion.div>
-            ) : null;
-          })()}
+      <Suspense fallback={null}>
+        <LazyPreviewModal
+          navigationImages={navigationImages}
+          currentNavIndex={currentNavIndex}
+          onClose={closePreview}
+          onNavigatePrevious={handlePreviousImage}
+          onNavigateNext={handleNextImage}
+          getDisplayUrl={getImageDisplayUrl}
+        />
+      </Suspense>
 
-          {/* Floating Control Bar - Always Visible */}
-          <div
-            className="preview-floating-controls absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 px-6 py-3 rounded-[12px] backdrop-blur-xl"
-            style={{
-              maxWidth: '90vw',
-              flexWrap: 'wrap',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(0, 0, 0, 0.2)',
-              border: 'none',
-              outline: 'none',
-            }}
-          >
-                {/* Zoom Controls */}
-                <div className="control-button-group flex items-center gap-2">
-                  <Tooltip title="Zoom Out (-)">
-                    <Button
-                      type="text"
-                      icon={<ZoomOutOutlined />}
-                      onClick={handleZoomOut}
-                      disabled={zoomLevel <= 50}
-                      className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
-                    />
-                  </Tooltip>
-
-                  <div className="flex items-center gap-2 px-2">
-                    <Slider
-                      min={50}
-                      max={500}
-                      value={zoomLevel}
-                      onChange={(value) => setZoomLevel(value)}
-                      step={25}
-                      className="!w-24"
-                      tooltip={{ formatter: (value) => `${value}%` }}
-                      styles={{
-                        rail: { backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)' },
-                        track: { backgroundColor: 'rgba(168, 85, 247, 0.8)' },
-                        handle: { borderColor: '#a855f7', backgroundColor: '#a855f7' },
-                      }}
-                    />
-                    <span className={!theme || theme === 'dark' ? 'text-white' : 'text-gray-900'} style={{ fontSize: '14px', fontWeight: 500, minWidth: '50px', textAlign: 'center' } as React.CSSProperties}>
-                      {zoomLevel}%
-                    </span>
-                  </div>
-
-                  <Tooltip title="Zoom In (+)">
-                    <Button
-                      type="text"
-                      icon={<ZoomInOutlined />}
-                      onClick={handleZoomIn}
-                      disabled={zoomLevel >= 500}
-                      className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
-                    />
-                  </Tooltip>
-
-                  <Tooltip title="Reset Zoom (0 or Double-click)">
-                    <Button
-                      type="text"
-                      icon={<CompressOutlined />}
-                      onClick={handleZoomReset}
-                      className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
-                    />
-                  </Tooltip>
-                </div>
-
-                {/* Divider */}
-                <div className="w-px h-6 mx-1" style={{ backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)' }} />
-
-                {/* Fit Mode Toggle */}
-                <Tooltip title={`Fit Mode: ${fitMode} (Press F to cycle)`}>
-                  <Button
-                    type="text"
-                    icon={fitMode === 'contain' ? <CompressOutlined /> : fitMode === 'actual' ? <ExpandOutlined /> : <ExpandOutlined />}
-                    onClick={() => {
-                      const modes: Array<'contain' | 'actual' | 'fill'> = ['contain', 'actual', 'fill'];
-                      const currentIdx = modes.indexOf(fitMode);
-                      handleFitModeChange(modes[(currentIdx + 1) % modes.length]);
-                    }}
-                    className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none !font-medium' : '!text-gray-900 hover:!bg-gray-900/10 !border-none !font-medium'}
-                  >
-                    {fitMode === 'contain' ? 'Fit' : fitMode === 'actual' ? '100%' : 'Fill'}
-                  </Button>
-                </Tooltip>
-
-                {/* Divider */}
-                <div className="w-px h-6 mx-1" style={{ backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)' }} />
-
-                {/* Navigation */}
-                <div className="control-button-group flex items-center gap-1">
-                  <Tooltip title="Previous Image (Left Arrow)">
-                    <Button
-                      type="text"
-                      icon={<LeftOutlined />}
-                      onClick={handlePreviousImage}
-                      disabled={currentNavIndex === 0}
-                      className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
-                    />
-                  </Tooltip>
-
-                  <span className={!theme || theme === 'dark' ? 'text-white' : 'text-gray-900'} style={{ fontSize: '14px', fontWeight: 500, minWidth: '60px', textAlign: 'center' } as React.CSSProperties}>
-                    {navigationImages.length > 0 ? `${currentNavIndex + 1} / ${navigationImages.length}` : 'Preview'}
-                  </span>
-
-                  <Tooltip title="Next Image (Right Arrow)">
-                    <Button
-                      type="text"
-                      icon={<RightOutlined />}
-                      onClick={handleNextImage}
-                      disabled={currentNavIndex >= navigationImages.length - 1 || navigationImages.length === 0}
-                      className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
-                    />
-                  </Tooltip>
-                </div>
-
-                {/* Divider */}
-                <div className="w-px h-6 mx-1" style={{ backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)' }} />
-
-                {/* Fullscreen Toggle */}
-                <Tooltip title="Fullscreen (F11)">
-                  <Button
-                    type="text"
-                    icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
-                    onClick={handleFullscreenToggle}
-                    className={!theme || theme === 'dark' ? '!text-white hover:!bg-white/10 !border-none' : '!text-gray-900 hover:!bg-gray-900/10 !border-none'}
-                  />
-                </Tooltip>
-
-                {/* Divider */}
-                <div className="w-px h-6 mx-1" style={{ backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)' }} />
-
-                {/* Close Button */}
-                <Tooltip title="Close (ESC)">
-                  <Button
-                    type="text"
-                    onClick={closePreview}
-                    className={!theme || theme === 'dark' ? '!text-white hover:!bg-red-500/20 !border-none !text-lg' : '!text-gray-900 hover:!bg-red-500/20 !border-none !text-lg'}
-                  >
-                    ✕
-                  </Button>
-                </Tooltip>
-          </div>
-
-          {/* Keyboard Shortcuts Hint */}
-          <div
-            className="absolute top-4 left-1/2 -translate-x-1/2 backdrop-blur-md rounded-full px-4 py-2 text-xs pointer-events-none"
-            style={{
-              backgroundColor: theme === 'dark' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(255, 255, 255, 0.7)',
-              color: theme === 'dark' ? 'rgba(255, 255, 255, 0.6)' : 'rgba(0, 0, 0, 0.6)',
-            }}
-          >
-            +/-: Zoom • 0: Reset • F: Fit Mode • F11: Fullscreen • ESC: Close
-          </div>
-        </div>
-      </Modal>
-
-      <style jsx global>{`
+      <style>{`
         .dark-dropdown .ant-select-dropdown {
           background: rgba(15, 15, 25, 0.95) !important;
           border: 1px solid rgba(255, 255, 255, 0.1) !important;
@@ -1706,6 +963,27 @@ export default function App(): React.ReactElement {
 
         .ant-tooltip-arrow-content {
           background: rgba(15, 15, 25, 0.95) !important;
+        }
+
+        /* Optimized CSS animations for floating blobs (replaces Framer Motion) */
+        @keyframes floating-blob {
+          0%, 100% {
+            transform: scale(1) rotate(0deg);
+          }
+          25% {
+            transform: scale(1.1) rotate(90deg);
+          }
+          50% {
+            transform: scale(1.2) rotate(180deg);
+          }
+          75% {
+            transform: scale(1.1) rotate(270deg);
+          }
+        }
+
+        .floating-blob {
+          animation: floating-blob 8s ease-in-out infinite;
+          transform: translateZ(0); /* GPU hint */
         }
       `}</style>
     </>

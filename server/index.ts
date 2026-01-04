@@ -1,13 +1,14 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
 import compression from 'compression';
-import morgan from 'morgan';
+import cors from 'cors';
+import express from 'express';
 import rateLimit from 'express-rate-limit';
-import configRouter from './routes/config';
-import imagesRouter from './routes/images';
-import downloadRouter from './routes/download';
+import helmet from 'helmet';
+import morgan from 'morgan';
+
 import { errorHandler } from './middleware/error';
+import configRouter from './routes/config';
+import downloadRouter from './routes/download';
+import imagesRouter from './routes/images';
 
 const app = express();
 const PORT = process.env.PORT || 3001;

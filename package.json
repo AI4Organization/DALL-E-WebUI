@@ -16,7 +16,30 @@
     "build:rsbuild": "rsbuild build",
     "start": "concurrently \"npm run start:backend\" \"npm run start:rsbuild\"",
     "start:backend": "node server/dist/index.js",
-    "start:rsbuild": "rsbuild preview"
+    "start:rsbuild": "rsbuild preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{js,jsx,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@rsbuild/core": "^1.7.1",
@@ -39,23 +62,41 @@
     "sonner": "^2.0.7"
   },
   "devDependencies": {
+    "@eslint-react/eslint-plugin": "^2.5.0",
+    "@playwright/test": "^1.57.0",
     "@rsbuild/plugin-react": "^1.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@testing-library/user-event": "^14.6.1",
     "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/morgan": "^1.9.10",
     "@types/node": "^24.10.4",
     "@types/react": "19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.51.0",
+    "@typescript-eslint/parser": "^8.51.0",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/ui": "^4.0.16",
     "autoprefixer": "^10.4.23",
     "base64-js": "^1.5.1",
     "buffer": "^6.0.3",
     "concurrently": "^9.2.1",
     "eslint": "9.39.2",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.26",
     "follow-redirects": "^1.15.11",
+    "happy-dom": "^20.0.11",
+    "husky": "^9.1.7",
     "ieee754": "^1.2.1",
+    "jsdom": "^27.4.0",
+    "lint-staged": "^16.2.7",
     "nanoid": "^5.1.6",
     "nodemon": "^3.1.11",
     "postcss": "^8.5.6",
+    "prettier": "^3.7.4",
     "queue-microtask": "^1.2.3",
     "resolve-pkg-maps": "^1.0.0",
     "run-parallel": "^1.2.0",
@@ -66,6 +107,8 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "5.9.3",
+    "typescript-eslint": "^8.51.0",
+    "vitest": "^4.0.16",
     "zod": "^4.3.4"
   }
 }

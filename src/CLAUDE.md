@@ -171,6 +171,220 @@ npm run build:rsbuild
 
 Build output goes to `dist/` directory.
 
+## Testing
+
+The project uses Vitest for unit/component testing and Playwright for end-to-end testing.
+
+### Test Structure
+
+```
+src/
+├── __tests__/              # General tests
+│   └── example.test.ts
+├── components/
+│   └── __tests__/          # Component tests
+│       ├── ThemeToggle.test.tsx
+│       └── ErrorBoundary.test.tsx
+├── hooks/
+│   └── __tests__/          # Hook tests
+│       └── useAutoResizeTextArea.test.ts
+├── lib/
+│   └── api/
+│       └── __tests__/      # API tests
+│           └── image-generation.test.ts
+└── contexts/
+    └── __tests__/          # Context tests
+        └── GenerationContext.test.tsx
+
+e2e/                       # E2E tests (Playwright)
+├── image-generation.spec.ts
+├── model-switching.spec.ts
+└── theme-toggle.spec.ts
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run E2E tests
+npm run test:e2e
+
+# Run specific test file
+npx vitest src/components/__tests__/ThemeToggle.test.tsx
+```
+
+### Test Configuration
+
+**Vitest** (`vitest.config.ts`):
+- Environment: `jsdom` (simulates browser DOM)
+- Setup file: `src/__tests__/setup.ts`
+- Coverage: `istanbul` with thresholds (80% minimum)
+- Global CSS mock for component tests
+
+**Playwright** (`playwright.config.ts`):
+- Browser: Chromium
+- Base URL: `http://localhost:3000`
+- Timeout: 30 seconds
+- Screenshot directory: `e2e/screenshots`
+
+### Writing Component Tests
+
+Use `@testing-library/react` for component testing:
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ThemeToggle } from '../ThemeToggle';
+
+describe('ThemeToggle', () => {
+  it('renders the toggle button', () => {
+    render(<ThemeToggle />);
+    expect(screen.getByRole('button')).toBeInTheDocument();
+  });
+
+  it('toggles theme on click', () => {
+    render(<ThemeToggle />);
+    const button = screen.getByRole('button');
+    fireEvent.click(button);
+    // Assert theme changed
+  });
+});
+```
+
+### Writing Hook Tests
+
+Use `renderHook` from `@testing-library/react`:
+
+```typescript
+import { renderHook, act } from '@testing-library/react';
+import { useAutoResizeTextArea } from '../useAutoResizeTextArea';
+
+describe('useAutoResizeTextArea', () => {
+  it('auto-resizes textarea', () => {
+    const ref = { current: document.createElement('textarea') };
+    renderHook(() => useAutoResizeTextArea(ref));
+
+    act(() => {
+      ref.current.value = 'Long text...';
+      ref.current.dispatchEvent(new Event('input'));
+    });
+
+    expect(ref.current.style.height).toBe('150px');
+  });
+});
+```
+
+### Writing API Tests
+
+Mock the API client for isolated testing:
+
+```typescript
+import { vi, expect, describe, it } from 'vitest';
+import { generateImages } from '../image-generation';
+import { apiClient } from '../api-client';
+
+vi.mock('../api-client');
+
+describe('generateImages', () => {
+  it('generates images successfully', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: { result: [{ url: 'https://example.com/image.png' }] }
+    });
+
+    const result = await generateImages({
+      prompt: 'Test',
+      model: 'dall-e-3',
+      n: 1,
+    });
+
+    expect(result.images).toHaveLength(1);
+  });
+});
+```
+
+### Writing E2E Tests
+
+Use Playwright for end-to-end testing:
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test('generates an image', async ({ page }) => {
+  await page.goto('/');
+
+  // Enter prompt
+  await page.fill('textarea[placeholder*="prompt"]', 'A cat');
+
+  // Click generate
+  await page.click('button:has-text("Generate")');
+
+  // Wait for result
+  await page.waitForSelector('img[alt*="Generated"]');
+
+  // Assert image exists
+  const images = await page.locator('img[alt*="Generated"]').count();
+  expect(images).toBeGreaterThan(0);
+});
+```
+
+### Test Utilities
+
+**Setup File** (`src/__tests__/setup.ts`):
+- Configures `@testing-library/react`
+- Sets up global mocks (CSS modules, window.matchMedia)
+- Provides custom test utilities
+
+**Custom Matchers:**
+- `toBeInTheDocument()` - DOM presence
+- `toHaveTextContent()` - Text content
+- `toBeVisible()` - Visibility check
+- `toBeDisabled()` - Disabled state
+
+### Coverage Thresholds
+
+Current coverage targets (configured in `vitest.config.ts`):
+- Statements: 80%
+- Branches: 80%
+- Functions: 80%
+- Lines: 80%
+
+View coverage report:
+```bash
+npm run test:coverage
+open coverage/index.html
+```
+
+### Testing Best Practices
+
+1. **Test user behavior, not implementation**
+   - Test what users see and do
+   - Avoid testing internal state
+
+2. **Use semantic queries**
+   - Prefer `getByRole()` over `getByClassName()`
+   - Use `getByLabelText()` for form inputs
+
+3. **Mock external dependencies**
+   - Mock API calls
+   - Mock browser APIs
+   - Mock timers when testing async code
+
+4. **Keep tests isolated**
+   - Each test should be independent
+   - Clean up after each test
+
+5. **Use descriptive test names**
+   - Should describe what is being tested
+   - Should describe the expected outcome
+
 ## Notes
 
 - This is a client-side SPA (no SSR)
@@ -179,3 +393,7 @@ Build output goes to `dist/` directory.
 - Theme preference persists in localStorage
 - All API calls go through Express backend (never directly to OpenAI)
 - TypeScript strict mode is enabled
+- Test suite includes 36 tests (unit + component + E2E)
+- ESLint configured with React hooks and import ordering rules
+- Husky pre-commit hooks run linter on staged files
+

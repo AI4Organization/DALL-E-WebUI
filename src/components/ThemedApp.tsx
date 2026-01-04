@@ -1,5 +1,6 @@
 import { ConfigProvider, theme as antTheme } from 'antd';
 import { Toaster } from 'sonner';
+
 import { useTheme } from '../lib/theme';
 
 interface ThemedAppProps {
@@ -82,12 +83,6 @@ export function ThemedApp({ children }: ThemedAppProps): React.ReactElement {
         closeButton
         duration={5000}
         toastOptions={{
-          durations: {
-            error: 10000,
-            warning: 7000,
-            info: 5000,
-            success: 5000,
-          },
           style: {
             background: effectiveTheme === 'dark' ? 'rgba(15, 15, 25, 0.95)' : 'rgba(255, 255, 255, 0.98)',
             border: effectiveTheme === 'dark' ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid rgba(0, 0, 0, 0.08)',

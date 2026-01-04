@@ -226,6 +226,9 @@ type GPTImageQuality = 'auto' | 'high' | 'medium' | 'low';
 type GPTImageOutputFormat = 'png' | 'jpeg' | 'webp';
 type GPTImageBackground = 'auto' | 'transparent' | 'opaque';
 
+// Universal output format for all models
+type ImageOutputFormat = 'webp' | 'png' | 'jpeg';
+
 // All sizes across models
 type ImageSize =
   | '1024x1024'    // Common square size (all models)
@@ -236,8 +239,6 @@ type ImageSize =
   | 'auto'         // GPT Image 1.5 auto size
   | '1536x1024'    // GPT Image 1.5 landscape
   | '1024x1536';   // GPT Image 1.5 portrait
-
-type DownloadFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif';
 
 // API responses
 interface ImagesApiResponse { result: OpenAIImageResult[]; }

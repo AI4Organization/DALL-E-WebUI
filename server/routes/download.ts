@@ -1,21 +1,22 @@
-import { Router, Request, Response } from 'express';
 import axios from 'axios';
+import { Router, Request, Response } from 'express';
 import sharp from 'sharp';
-import type { DownloadApiResponse, DownloadApiRequestBody, DownloadFormat } from '../../types';
+
+import type { DownloadApiResponse, DownloadApiRequestBody, ImageOutputFormat } from '../../types';
 
 const router = Router();
 
-const VALID_FORMATS: DownloadFormat[] = ['png', 'jpg', 'jpeg', 'gif', 'avif', 'webp'];
+const VALID_FORMATS: ImageOutputFormat[] = ['png', 'jpeg', 'webp'];
 
-function isValidFormat(format: string): format is DownloadFormat {
-  return VALID_FORMATS.includes(format as DownloadFormat);
+function isValidFormat(format: string): format is ImageOutputFormat {
+  return VALID_FORMATS.includes(format as ImageOutputFormat);
 }
 
 async function convertImage(
   buffer: Buffer,
-  format: DownloadFormat
+  format: ImageOutputFormat
 ): Promise<{ data: Buffer; mimeType: string }> {
-  let sharpInstance = sharp(buffer);
+  const sharpInstance = sharp(buffer);
 
   switch (format) {
     case 'png':
@@ -23,21 +24,10 @@ async function convertImage(
         data: await sharpInstance.png().toBuffer(),
         mimeType: 'image/png',
       };
-    case 'jpg':
     case 'jpeg':
       return {
         data: await sharpInstance.jpeg().toBuffer(),
         mimeType: 'image/jpeg',
-      };
-    case 'gif':
-      return {
-        data: await sharpInstance.gif().toBuffer(),
-        mimeType: 'image/gif',
-      };
-    case 'avif':
-      return {
-        data: await sharpInstance.avif().toBuffer(),
-        mimeType: 'image/avif',
       };
     case 'webp':
     default:

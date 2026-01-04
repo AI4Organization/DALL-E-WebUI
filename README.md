@@ -92,3 +92,101 @@ Services:
 ## Developer Notes
 
 This project uses the OpenAI official API with proper TypeScript typing and Ant Design components.
+
+## Testing
+
+The project includes comprehensive tests using Vitest (unit/component) and Playwright (E2E).
+
+### Running Tests
+
+```bash
+# Run all tests (unit + component)
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage report
+npm run test:coverage
+
+# Run E2E tests
+npm run test:e2e
+
+# Run E2E tests in debug mode (headed browser)
+npm run test:e2e:debug
+```
+
+### Test Summary
+
+- **Total Tests**: 36 tests
+- **Framework**: Vitest for unit/component, Playwright for E2E
+- **Coverage Target**: 80% minimum across statements, branches, functions, and lines
+- **Test Environment**: jsdom for component tests, Chromium for E2E
+
+### Test Structure
+
+```
+src/
+├── __tests__/              # General tests
+├── components/__tests__/   # Component tests
+├── hooks/__tests__/        # Hook tests
+├── lib/api/__tests__/      # API tests
+└── contexts/__tests__/     # Context tests
+
+e2e/                        # E2E tests
+├── image-generation.spec.ts
+├── model-switching.spec.ts
+└── theme-toggle.spec.ts
+```
+
+### Type Checking
+
+```bash
+# Run TypeScript compiler check (no emit)
+npm run check
+
+# Check frontend only
+npx tsc --noEmit
+
+# Check backend only
+npx tsc --project tsconfig.server.json --noEmit
+```
+
+### Linting
+
+```bash
+# Run ESLint on all files
+npm run lint
+
+# Fix linting issues automatically
+npm run lint:fix
+```
+
+### Pre-commit Hooks
+
+The project uses Husky and lint-staged to run tests and linters on pre-commit:
+- TypeScript type checking
+- ESLint with auto-fix
+- Staged file validation
+
+## Scripts Reference
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start both backend (3001) and frontend (3000) in dev mode |
+| `npm run dev:backend` | Start backend only with hot reload |
+| `npm run dev:rsbuild` | Start frontend only with hot reload |
+| `npm run build` | Build both backend and frontend |
+| `npm run build:backend` | Compile backend TypeScript to `server/dist/` |
+| `npm run build:rsbuild` | Build frontend to `dist/` |
+| `npm run start` | Start both backend and frontend in production |
+| `npm run start:backend` | Start backend from `server/dist/` |
+| `npm run start:rsbuild` | Preview frontend build |
+| `npm test` | Run all unit and component tests |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run test:coverage` | Run tests with coverage report |
+| `npm run test:e2e` | Run E2E tests with Playwright |
+| `npm run check` | Run TypeScript type checking |
+| `npm run lint` | Run ESLint on all files |
+| `npm run lint:fix` | Fix ESLint issues automatically |
+

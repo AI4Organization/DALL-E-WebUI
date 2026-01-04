@@ -135,12 +135,12 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 **Request Body:**
 ```typescript
 {
-  imageUrl: string;        // URL of image to convert
-  format: DownloadFormat;  // Target format
+  imageUrl: string;           // URL of image to convert
+  type: ImageOutputFormat;    // Target format (webp, png, jpeg)
 }
 ```
 
-**DownloadFormat:** `'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif'`
+**ImageOutputFormat:** `'webp' | 'png' | 'jpeg'`
 
 **Response:**
 ```typescript
@@ -151,7 +151,7 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 
 **Key Features:**
 - Fetches images from URLs
-- Converts to 6 different formats
+- Converts to 3 different formats
 - Handles both PNG and JPEG sources
 - Returns base64 data URL for client download
 - Efficient Sharp-based processing
@@ -159,9 +159,7 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 **Format Support:**
 - **WebP** - Modern format with good compression
 - **PNG** - Lossless compression
-- **JPEG/JPG** - Lossy compression
-- **GIF** - Animated format support
-- **AVIF** - Next-gen format
+- **JPEG** - Lossy compression
 
 ## Error Handling
 
