@@ -1,12 +1,5 @@
-import {
-  LoadingOutlined,
-  PictureOutlined,
-  ThunderboltOutlined,
-} from '@ant-design/icons';
-import {
-  Button,
-  Space,
-} from 'antd';
+import { LoadingOutlined, PictureOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { Button, Space } from 'antd';
 import axios from 'axios';
 import { AnimatePresence, motion } from 'framer-motion';
 import pLimit from 'p-limit';
@@ -214,7 +207,7 @@ export default function App(): React.ReactElement {
 
   // Set document title
   useEffect(() => {
-    document.title = 'GenAI Studio - Create Images with AI';
+    document.title = 'OpenDia';
   }, []);
 
   // ============ Memoized Values ============
@@ -314,7 +307,8 @@ export default function App(): React.ReactElement {
   useEffect(() => {
     if (!configLoading && availableModels.length > 0) {
       const isFirstModel = !model;
-      const isModelNotAvailable = model && !availableModels.some((m: ModelOption) => m.value === model);
+      const isModelNotAvailable =
+        model && !availableModels.some((m: ModelOption) => m.value === model);
 
       if (isFirstModel || isModelNotAvailable) {
         setModel(availableModels[0]?.value ?? null);
