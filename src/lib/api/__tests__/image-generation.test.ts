@@ -80,7 +80,7 @@ describe('image-generation API', () => {
 
       const result = await generateImages({
         prompt: 'A cat',
-        model: 'gpt-image-1.5-2025-12-16',
+        model: 'gpt-image-1.5',
         n: 1,
       });
 
@@ -115,7 +115,7 @@ describe('image-generation API', () => {
 
       await generateImages({
         prompt: 'A cat',
-        model: 'gpt-image-1.5-2025-12-16',
+        model: 'gpt-image-1.5',
         n: 1,
         response_format: 'webp',
       });

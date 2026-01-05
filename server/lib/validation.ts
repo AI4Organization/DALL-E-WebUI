@@ -1,11 +1,11 @@
 import { type ValidationResult, type ImageStyle } from '../../types';
 
 // ============ Type Definitions ============
-type ValidModel = 'dall-e-3' | 'dall-e-2' | 'gpt-image-1.5-2025-12-16' | 'z-ai/glm-4.6v' | 'x-ai/grok-4.1-fast';
+type ValidModel = 'dall-e-3' | 'dall-e-2' | 'gpt-image-1.5' | 'z-ai/glm-4.6v' | 'x-ai/grok-4.1-fast';
 
 // ============ Constants ============
 const BASE_URL_MODELS: Record<string, ValidModel[]> = {
-  'https://api.openai.com/v1': ['dall-e-3', 'dall-e-2', 'gpt-image-1.5-2025-12-16'],
+  'https://api.openai.com/v1': ['dall-e-3', 'dall-e-2', 'gpt-image-1.5'],
   'https://openrouter.ai/api/v1': ['z-ai/glm-4.6v', 'x-ai/grok-4.1-fast'],
 };
 
@@ -145,7 +145,7 @@ export function validateGPTImage15Params(params: GPTImage15Params): ValidationRe
  * Gets the maximum prompt length for a given model.
  */
 export function getPromptLimitForModel(model: string): number {
-  if (model === 'gpt-image-1.5-2025-12-16') return 32000;
+  if (model === 'gpt-image-1.5') return 32000;
   if (model === 'dall-e-3') return 4000;
   if (model === 'dall-e-2') return 1000;
   return 4000; // Default for other models
@@ -155,7 +155,7 @@ export function getPromptLimitForModel(model: string): number {
  * Gets the maximum number of images for a given model.
  */
 export function getMaxImagesForModel(model: string): number {
-  if (model === 'gpt-image-1.5-2025-12-16') return 10;
+  if (model === 'gpt-image-1.5') return 10;
   if (model === 'dall-e-3') return 1;
   if (model === 'dall-e-2') return 10;
   return 1; // Default conservative limit
@@ -165,7 +165,7 @@ export function getMaxImagesForModel(model: string): number {
  * Gets the valid sizes for a given model.
  */
 export function getValidSizesForModel(model: string): readonly string[] {
-  if (model === 'gpt-image-1.5-2025-12-16') return GPT_IMAGE_1_5_SIZES;
+  if (model === 'gpt-image-1.5') return GPT_IMAGE_1_5_SIZES;
   if (model === 'dall-e-2') return DALL_E_2_SIZES;
   // Default to DALL-E 3 sizes for dall-e-3 and others
   if (model === 'dall-e-3') return DALL_E_3_SIZES;
@@ -178,7 +178,7 @@ export function getValidSizesForModel(model: string): readonly string[] {
  * For DALL-E 2, returns the largest square size.
  */
 export function getDefaultSizeForModel(model: string): string {
-  if (model === 'gpt-image-1.5-2025-12-16') return GPT_IMAGE_1_5_SIZES[2]; // '1536x1024' (Landscape)
+  if (model === 'gpt-image-1.5') return GPT_IMAGE_1_5_SIZES[2]; // '1536x1024' (Landscape)
   if (model === 'dall-e-2') return DALL_E_2_SIZES[2]; // '1024x1024' (Largest square)
   if (model === 'dall-e-3') return DALL_E_3_SIZES[2]; // Landscape for DALL-E 3
   // Return defaul sizes for the other models

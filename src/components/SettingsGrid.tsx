@@ -122,7 +122,7 @@ function SelectControlItem({ label, tooltip, disabled, disabledReason, children 
 // ============ Helper Functions ============
 
 const getQualityOptions = (modelName: string | null): { value: ImageQuality | GPTImageQuality; label: string }[] => {
-  if (modelName === 'gpt-image-1.5-2025-12-16') {
+  if (modelName === 'gpt-image-1.5') {
     return GPT_IMAGE_1_5_QUALITY_OPTIONS;
   }
   if (modelName === 'dall-e-2') {
@@ -132,7 +132,7 @@ const getQualityOptions = (modelName: string | null): { value: ImageQuality | GP
 };
 
 const getSizeOptions = (modelName: string | null): { value: ImageSize; label: string }[] => {
-  if (modelName === 'gpt-image-1.5-2025-12-16') {
+  if (modelName === 'gpt-image-1.5') {
     return GPT_IMAGE_1_5_SIZES.map((size) => ({
       value: size,
       label: size === 'auto' ? 'Auto' :
@@ -161,14 +161,14 @@ const getSizeOptions = (modelName: string | null): { value: ImageSize; label: st
 };
 
 const getMaxImages = (modelName: string | null): number => {
-  if (modelName === 'gpt-image-1.5-2025-12-16') return 10;
+  if (modelName === 'gpt-image-1.5') return 10;
   if (modelName === 'dall-e-3') return 10;
   if (modelName === 'dall-e-2') return 10;
   return 10;
 };
 
 const shouldShowQuality = (model: string | null): boolean => {
-  return model === 'dall-e-2' || model === 'dall-e-3' || model === 'gpt-image-1.5-2025-12-16';
+  return model === 'dall-e-2' || model === 'dall-e-3' || model === 'gpt-image-1.5';
 };
 
 const shouldShowStyle = (model: string | null): boolean => {
@@ -176,7 +176,7 @@ const shouldShowStyle = (model: string | null): boolean => {
 };
 
 const shouldShowBackground = (model: string | null): boolean => {
-  return model === 'gpt-image-1.5-2025-12-16';
+  return model === 'gpt-image-1.5';
 };
 
 // ============ Main Component ============
