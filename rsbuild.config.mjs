@@ -55,7 +55,21 @@ export default defineConfig({
 
   performance: {
     chunkSplit: {
-      strategy: 'all-in-one'
-    }
+      strategy: 'split-by-experience',
+      override: {
+        'vendor-antd': {
+          test: /[\\/]node_modules[\\/](antd|@ant-design)[\\/]/,
+          priority: 20,
+        },
+        'vendor-framer-motion': {
+          test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
+          priority: 15,
+        },
+        'vendor-react': {
+          test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,
+          priority: 10,
+        },
+      },
+    },
   }
 });

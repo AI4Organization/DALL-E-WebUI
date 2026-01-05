@@ -51,6 +51,8 @@ export function ThemeProvider({ children }: { children: ReactNode }): React.Reac
   );
 }
 
+// Custom hook exported alongside provider - not a React component
+/* eslint-disable react-refresh/only-export-components */
 export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext);
   if (!context) {
@@ -58,3 +60,4 @@ export function useTheme(): ThemeContextType {
   }
   return context;
 }
+/* eslint-enable react-refresh/only-export-components */

@@ -1,5 +1,6 @@
-import { validateEnvVars } from './validation';
 import type { ServerConfig, ModelOption } from '../../types';
+
+import { validateEnvVars } from './validation';
 
 // Model options for each base URL (with labels for UI)
 const BASE_URL_MODELS: Record<string, ModelOption[]> = {

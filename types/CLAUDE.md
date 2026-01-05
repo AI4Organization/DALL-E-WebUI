@@ -133,12 +133,17 @@ type ImageStyle = 'vivid' | 'natural';
 - **vivid**: Hyper-realistic, dramatic images
 - **natural**: More natural, less dramatic results
 
-#### `DownloadFormat`
-Supported image formats for download/conversion.
+#### `ImageOutputFormat`
+Universal output format for all models (API-supported formats only).
 
 ```typescript
-type DownloadFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif';
+type ImageOutputFormat = 'webp' | 'png' | 'jpeg';
 ```
+
+**Usage:**
+- Default format: `webp`
+- For DALL-E 2/3: Format is applied during download via backend conversion
+- For GPT Image 1.5: Format is sent to API as `response_format` parameter
 
 #### `ImageGenerationStatus`
 Status of an individual image generation request.
@@ -232,8 +237,8 @@ Request body for image conversion endpoint.
 
 ```typescript
 interface DownloadApiRequestBody {
-  url: string;          // Image URL to convert
-  type: DownloadFormat; // Target format
+  url: string;                // Image URL to convert
+  type: ImageOutputFormat;    // Target format (webp, png, jpeg)
 }
 ```
 

@@ -1,9 +1,20 @@
 'use client';
 
-import { useTheme } from '../lib/theme';
 import { motion } from 'framer-motion';
+import { memo } from 'react';
 
-export function ThemeToggle(): React.ReactElement {
+import { useTheme } from '../lib/theme';
+
+/**
+ * ThemeToggle - Animated toggle button for switching between dark and light themes
+ *
+ * Features:
+ * - Smooth Framer Motion animations for sun/moon icons
+ * - Hover and tap animations
+ * - Fixed positioning in top-right corner
+ * - Memoized to prevent unnecessary re-renders
+ */
+export const ThemeToggle = memo(function ThemeToggle(): React.ReactElement {
   const { theme, toggleTheme } = useTheme();
 
   const isDark = theme === 'dark';
@@ -100,4 +111,6 @@ export function ThemeToggle(): React.ReactElement {
       </div>
     </motion.button>
   );
-}
+});
+
+ThemeToggle.displayName = 'ThemeToggle';

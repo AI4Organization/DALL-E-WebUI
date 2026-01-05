@@ -8,6 +8,13 @@ export interface OpenAIImageResult {
   url?: string;
   revised_prompt?: string;
   b64_json?: string;
+  /**
+   * Client-side Blob URL created from base64 data.
+   * This property is NOT part of the API response - it's added client-side
+   * for memory-efficient display of base64 images.
+   * Must be revoked with URL.revokeObjectURL() when no longer needed.
+   */
+  blobUrl?: string;
 }
 
 // ============ Image Generation Types ============
@@ -58,7 +65,9 @@ export type ImageSize =
   | '1024x1536';
 
 export type ImageStyle = 'vivid' | 'natural';
-export type DownloadFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif';
+
+// Image preview fit modes
+export type FitMode = 'contain' | 'actual' | 'fill';
 
 // Model-specific size options
 export const DALL_E_2_SIZES: readonly ImageSize[] = ['256x256', '512x512', '1024x1024'] as const;
@@ -93,7 +102,7 @@ export interface ImagesApiErrorResponse {
 
 export interface DownloadApiRequestBody {
   url: string;
-  type: DownloadFormat;
+  type: ImageOutputFormat;
 }
 
 export interface DownloadApiResponse {
@@ -125,6 +134,9 @@ export interface ValidationResult {
 }
 
 // ============ Environment Variable Types ============
+// Global augmentation for Node.js ProcessEnv - this is the standard TypeScript pattern
+// for extending global types from the Node.js namespace.
+/* eslint-disable @typescript-eslint/no-namespace */
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
@@ -133,3 +145,5 @@ declare global {
     }
   }
 }
+/* eslint-enable @typescript-eslint/no-namespace */
+export {};

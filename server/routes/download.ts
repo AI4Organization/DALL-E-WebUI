@@ -1,21 +1,46 @@
-import { Router, Request, Response } from 'express';
 import axios from 'axios';
+import { Router, Request, Response } from 'express';
+import pLimit from 'p-limit';
 import sharp from 'sharp';
-import type { DownloadApiResponse, DownloadApiRequestBody, DownloadFormat } from '../../types';
+
+import type { DownloadApiResponse, DownloadApiRequestBody, ImageOutputFormat } from '../../types';
 
 const router = Router();
 
-const VALID_FORMATS: DownloadFormat[] = ['png', 'jpg', 'jpeg', 'gif', 'avif', 'webp'];
+const VALID_FORMATS: ImageOutputFormat[] = ['png', 'jpeg', 'webp'];
 
-function isValidFormat(format: string): format is DownloadFormat {
-  return VALID_FORMATS.includes(format as DownloadFormat);
+// Concurrency limit for parallel Sharp processing
+// Utilizes libuv's thread pool for efficient parallel image processing
+const sharpLimit = pLimit(4);
+
+function isValidFormat(format: string): format is ImageOutputFormat {
+  return VALID_FORMATS.includes(format as ImageOutputFormat);
 }
 
+/**
+ * Converts an image buffer to the specified format using Sharp
+ * Wraps the conversion in a concurrency-limited task for parallel processing
+ *
+ * @param buffer - Image buffer to convert
+ * @param format - Target format
+ * @returns Converted buffer and MIME type
+ */
 async function convertImage(
   buffer: Buffer,
-  format: DownloadFormat
+  format: ImageOutputFormat
 ): Promise<{ data: Buffer; mimeType: string }> {
-  let sharpInstance = sharp(buffer);
+  // Use concurrency limit for parallel Sharp processing
+  return sharpLimit(() => doConvertImage(buffer, format));
+}
+
+/**
+ * Actual Sharp conversion implementation (called within concurrency limit)
+ */
+async function doConvertImage(
+  buffer: Buffer,
+  format: ImageOutputFormat
+): Promise<{ data: Buffer; mimeType: string }> {
+  const sharpInstance = sharp(buffer);
 
   switch (format) {
     case 'png':
@@ -23,21 +48,10 @@ async function convertImage(
         data: await sharpInstance.png().toBuffer(),
         mimeType: 'image/png',
       };
-    case 'jpg':
     case 'jpeg':
       return {
         data: await sharpInstance.jpeg().toBuffer(),
         mimeType: 'image/jpeg',
-      };
-    case 'gif':
-      return {
-        data: await sharpInstance.gif().toBuffer(),
-        mimeType: 'image/gif',
-      };
-    case 'avif':
-      return {
-        data: await sharpInstance.avif().toBuffer(),
-        mimeType: 'image/avif',
       };
     case 'webp':
     default:
@@ -50,24 +64,29 @@ async function convertImage(
 
 // POST /api/download - Handles image format conversion
 router.post('/', async (req: Request, res: Response<DownloadApiResponse | { error: string }>) => {
-  const { url, type } = req.body as DownloadApiRequestBody;
+  // Accept both old ({ url, type }) and new ({ imageUrl, format }) parameter names
+  const { url, type, imageUrl, format } = req.body as DownloadApiRequestBody & { imageUrl?: string; format?: string };
 
-  if (!url || !type) {
-    return res.status(400).json({ error: 'Missing required parameters: url and type' });
+  // Use imageUrl/format if provided, otherwise fall back to url/type
+  const finalUrl = imageUrl || url;
+  const finalFormat = (format || type) as ImageOutputFormat;
+
+  if (!finalUrl || !finalFormat) {
+    return res.status(400).json({ error: 'Missing required parameters: imageUrl (or url) and format (or type)' });
   }
 
-  if (!isValidFormat(type)) {
+  if (!isValidFormat(finalFormat)) {
     return res.status(400).json({
       error: `Invalid format. Valid formats: ${VALID_FORMATS.join(', ')}`,
     });
   }
 
   try {
-    const response = await axios.get<Buffer>(url, {
+    const response = await axios.get<Buffer>(finalUrl, {
       responseType: 'arraybuffer',
     });
 
-    const { data, mimeType } = await convertImage(response.data, type);
+    const { data, mimeType } = await convertImage(response.data, finalFormat);
     const base64 = data.toString('base64');
 
     res.status(200).json({

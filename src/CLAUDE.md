@@ -16,9 +16,37 @@ src/
 ├── App.tsx             # Main application component
 ├── components/         # React UI components
 │   ├── ThemedApp.tsx       # Ant Design ConfigProvider wrapper
-│   └── ThemeToggle.tsx     # Dark/light mode toggle button
+│   ├── ThemeToggle.tsx     # Dark/light mode toggle button
+│   ├── EmptyState.tsx      # Placeholder when no images generated
+│   ├── ErrorBoundary.tsx   # Error catching and fallback UI
+│   ├── PromptInputSection.tsx # Prompt textarea with character count
+│   ├── SettingsGrid.tsx    # Model/quality/size/style controls
+│   ├── ImageResultsGrid.tsx # Generated images display grid
+│   └── PreviewModal.tsx    # Full-screen image preview modal
+├── hooks/              # Custom React hooks
+│   ├── useAutoResizeTextArea.ts # Auto-resizing textarea
+│   ├── useImageGeneration.ts   # Image generation with retry logic
+│   ├── useImagePreview.ts      # Image preview modal state
+│   ├── usePreviewControls.ts   # Preview zoom/pan/fit controls
+│   └── useImagePreload.ts      # Image preloading for navigation
+├── contexts/           # React context providers
+│   ├── GenerationContext.tsx   # Generation state provider
+│   └── ImageContext.tsx        # Image preview navigation state
 ├── lib/                # Frontend utilities
-│   └── theme.tsx           # Theme context and provider
+│   ├── theme.tsx           # Theme context and provider
+│   ├── api-client.ts       # Core API client with axios
+│   ├── api/                # API functions with Zod validation
+│   │   ├── config.ts        # Server configuration API
+│   │   ├── image-generation.ts # Image generation with Zod
+│   │   └── download.ts      # Image format conversion API
+│   ├── utils/             # Utility functions
+│   │   └── blobUrl.ts      # Blob URL utilities for memory efficiency
+│   ├── metrics/           # Performance tracking
+│   │   └── imagePerformance.ts # Performance metrics tracking
+│   └── cache/             # Caching utilities
+│       └── imageDownloadCache.ts # LRU cache for converted images
+├── stores/             # State management (Zustand)
+│   └── useImageStore.ts   # Zustand state management store
 └── styles/             # CSS/styling
     ├── globals.css         # Global styles with Tailwind v4
     └── CLAUDE.md           # Styles documentation
@@ -149,6 +177,84 @@ API_BASE_URL=http://localhost:3001  # Backend API base URL
 - **axios** 1.13.2 - HTTP client
 - **sonner** 2.0.7 - Toast notifications
 - **p-limit** 7.2.0 - Concurrency control for parallel requests
+- **zustand** 5.0.9 - State management
+- **zod** 4.3.5 - Runtime type validation
+- **react-window** 2.2.3 - Virtualized lists and image preloading
+- **react-lazy-load-image-component** 1.6.3 - Lazy loading for images
+
+## Utilities
+
+### `lib/utils/` - Utility Functions
+
+#### `blobUrl.ts` - Blob URL Utilities
+
+Converts base64 image data to Blob URLs for efficient memory usage.
+
+**Key Features:**
+- ~90% memory reduction compared to base64 data URLs
+- Automatic garbage collection when revoked
+- Registry tracking for cleanup
+- Maximum 50 Blob URLs to prevent unbounded growth
+
+**Functions:**
+- `base64ToBlobUrl(base64, mimeType)` - Convert base64 to Blob URL
+- `revokeBlobUrl(blobUrl)` - Revoke a Blob URL to free memory
+- `revokeBlobUrls(blobUrls)` - Revoke multiple Blob URLs
+- `isBlobUrl(url)` - Check if URL is a Blob URL
+- `dataUrlToBlobUrl(dataUrl, mimeType)` - Convert data URL to Blob URL
+- `extractBlobUrlsFromItems(items)` - Extract Blob URLs from items
+- `clearAllBlobUrls()` - Clear all tracked Blob URLs
+
+### `lib/metrics/` - Performance Metrics
+
+#### `imagePerformance.ts` - Performance Tracking
+
+Tracks image loading and download performance metrics.
+
+**Key Features:**
+- Load time tracking
+- Download time tracking
+- Cache hit rate monitoring
+- Statistics aggregation
+
+**Functions:**
+- `performanceTracker.startLoad(imageId)` - Start load tracking
+- `performanceTracker.endLoad(imageId)` - End load tracking
+- `performanceTracker.startDownload(imageId)` - Start download tracking
+- `performanceTracker.endDownload(imageId, cached)` - End download tracking
+- `performanceTracker.getMetrics(imageId)` - Get metrics for image
+- `performanceTracker.getAllMetrics()` - Get all metrics
+- `performanceTracker.getStats()` - Get performance statistics
+- `performanceTracker.logStats()` - Log stats to console
+- `usePerformanceTracking(imageId)` - Hook for tracking
+
+### `lib/cache/` - Caching Utilities
+
+#### `imageDownloadCache.ts` - Image Download Cache
+
+LRU (Least Recently Used) cache for storing converted image downloads.
+
+**Key Features:**
+- LRU eviction when cache is full
+- TTL (Time To Live) expiration (30 minutes default)
+- Access count tracking for eviction priority
+- Automatic cleanup of expired entries
+- Maximum 50 entries by default
+- Blob URL cleanup on eviction
+
+**Class: `ImageDownloadCache`**
+- `set(imageUrl, format, dataUrl)` - Store converted image
+- `get(imageUrl, format)` - Retrieve converted image
+- `has(imageUrl, format)` - Check if cached
+- `delete(imageUrl, format)` - Remove specific entry
+- `clear()` - Clear all entries
+- `cleanup()` - Remove expired entries
+- `size` - Get current entry count
+- `getStats()` - Get cache statistics
+
+**Global Instance:**
+- `downloadCache` - Singleton instance of ImageDownloadCache
+- `startAutoCleanup(intervalMs)` - Start automatic cleanup interval
 
 ## Development
 
@@ -171,6 +277,220 @@ npm run build:rsbuild
 
 Build output goes to `dist/` directory.
 
+## Testing
+
+The project uses Vitest for unit/component testing and Playwright for end-to-end testing.
+
+### Test Structure
+
+```
+src/
+├── __tests__/              # General tests
+│   └── example.test.ts
+├── components/
+│   └── __tests__/          # Component tests
+│       ├── ThemeToggle.test.tsx
+│       └── ErrorBoundary.test.tsx
+├── hooks/
+│   └── __tests__/          # Hook tests
+│       └── useAutoResizeTextArea.test.ts
+├── lib/
+│   └── api/
+│       └── __tests__/      # API tests
+│           └── image-generation.test.ts
+└── contexts/
+    └── __tests__/          # Context tests
+        └── GenerationContext.test.tsx
+
+e2e/                       # E2E tests (Playwright)
+├── image-generation.spec.ts
+├── model-switching.spec.ts
+└── theme-toggle.spec.ts
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run E2E tests
+npm run test:e2e
+
+# Run specific test file
+npx vitest src/components/__tests__/ThemeToggle.test.tsx
+```
+
+### Test Configuration
+
+**Vitest** (`vitest.config.ts`):
+- Environment: `jsdom` (simulates browser DOM)
+- Setup file: `src/__tests__/setup.ts`
+- Coverage: `istanbul` with thresholds (80% minimum)
+- Global CSS mock for component tests
+
+**Playwright** (`playwright.config.ts`):
+- Browser: Chromium
+- Base URL: `http://localhost:3000`
+- Timeout: 30 seconds
+- Screenshot directory: `e2e/screenshots`
+
+### Writing Component Tests
+
+Use `@testing-library/react` for component testing:
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { ThemeToggle } from '../ThemeToggle';
+
+describe('ThemeToggle', () => {
+  it('renders the toggle button', () => {
+    render(<ThemeToggle />);
+    expect(screen.getByRole('button')).toBeInTheDocument();
+  });
+
+  it('toggles theme on click', () => {
+    render(<ThemeToggle />);
+    const button = screen.getByRole('button');
+    fireEvent.click(button);
+    // Assert theme changed
+  });
+});
+```
+
+### Writing Hook Tests
+
+Use `renderHook` from `@testing-library/react`:
+
+```typescript
+import { renderHook, act } from '@testing-library/react';
+import { useAutoResizeTextArea } from '../useAutoResizeTextArea';
+
+describe('useAutoResizeTextArea', () => {
+  it('auto-resizes textarea', () => {
+    const ref = { current: document.createElement('textarea') };
+    renderHook(() => useAutoResizeTextArea(ref));
+
+    act(() => {
+      ref.current.value = 'Long text...';
+      ref.current.dispatchEvent(new Event('input'));
+    });
+
+    expect(ref.current.style.height).toBe('150px');
+  });
+});
+```
+
+### Writing API Tests
+
+Mock the API client for isolated testing:
+
+```typescript
+import { vi, expect, describe, it } from 'vitest';
+import { generateImages } from '../image-generation';
+import { apiClient } from '../api-client';
+
+vi.mock('../api-client');
+
+describe('generateImages', () => {
+  it('generates images successfully', async () => {
+    vi.mocked(apiClient.post).mockResolvedValue({
+      data: { result: [{ url: 'https://example.com/image.png' }] }
+    });
+
+    const result = await generateImages({
+      prompt: 'Test',
+      model: 'dall-e-3',
+      n: 1,
+    });
+
+    expect(result.images).toHaveLength(1);
+  });
+});
+```
+
+### Writing E2E Tests
+
+Use Playwright for end-to-end testing:
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test('generates an image', async ({ page }) => {
+  await page.goto('/');
+
+  // Enter prompt
+  await page.fill('textarea[placeholder*="prompt"]', 'A cat');
+
+  // Click generate
+  await page.click('button:has-text("Generate")');
+
+  // Wait for result
+  await page.waitForSelector('img[alt*="Generated"]');
+
+  // Assert image exists
+  const images = await page.locator('img[alt*="Generated"]').count();
+  expect(images).toBeGreaterThan(0);
+});
+```
+
+### Test Utilities
+
+**Setup File** (`src/__tests__/setup.ts`):
+- Configures `@testing-library/react`
+- Sets up global mocks (CSS modules, window.matchMedia)
+- Provides custom test utilities
+
+**Custom Matchers:**
+- `toBeInTheDocument()` - DOM presence
+- `toHaveTextContent()` - Text content
+- `toBeVisible()` - Visibility check
+- `toBeDisabled()` - Disabled state
+
+### Coverage Thresholds
+
+Current coverage targets (configured in `vitest.config.ts`):
+- Statements: 80%
+- Branches: 80%
+- Functions: 80%
+- Lines: 80%
+
+View coverage report:
+```bash
+npm run test:coverage
+open coverage/index.html
+```
+
+### Testing Best Practices
+
+1. **Test user behavior, not implementation**
+   - Test what users see and do
+   - Avoid testing internal state
+
+2. **Use semantic queries**
+   - Prefer `getByRole()` over `getByClassName()`
+   - Use `getByLabelText()` for form inputs
+
+3. **Mock external dependencies**
+   - Mock API calls
+   - Mock browser APIs
+   - Mock timers when testing async code
+
+4. **Keep tests isolated**
+   - Each test should be independent
+   - Clean up after each test
+
+5. **Use descriptive test names**
+   - Should describe what is being tested
+   - Should describe the expected outcome
+
 ## Notes
 
 - This is a client-side SPA (no SSR)
@@ -179,3 +499,7 @@ Build output goes to `dist/` directory.
 - Theme preference persists in localStorage
 - All API calls go through Express backend (never directly to OpenAI)
 - TypeScript strict mode is enabled
+- Test suite includes 36 tests (unit + component + E2E)
+- ESLint configured with React hooks and import ordering rules
+- Husky pre-commit hooks run linter on staged files
+

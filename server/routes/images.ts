@@ -1,13 +1,46 @@
 import { Router, Request, Response } from 'express';
-import openai from '../lib/openai-client';
-import { validateModelForBaseURL, validateStyleForModel, validateGPTImage15Params, validateDALLE2Params, getPromptLimitForModel } from '../lib/validation';
+
 import type {
   ImagesApiResponse,
   ImagesApiErrorResponse,
-  ImageQuality,
   ImageSize,
   ImageStyle,
+  ImageQuality,
+  GPTImageQuality,
+  ImageOutputFormat,
+  GPTImageBackground,
 } from '../../types';
+import openai from '../lib/openai-client';
+import { validateModelForBaseURL, validateStyleForModel, validateGPTImage15Params, validateDALLE2Params, getPromptLimitForModel } from '../lib/validation';
+
+// Type for OpenAI image generation request parameters (varies by model)
+interface ImageGenerationRequestParams {
+  prompt: string;
+  n: number;
+  size: ImageSize;
+  model: string;
+  quality?: ImageQuality | GPTImageQuality;
+  style?: ImageStyle;
+  output_format?: ImageOutputFormat;
+  background?: GPTImageBackground;
+}
+
+// Type for OpenAI API errors
+interface OpenAIApiError extends Error {
+  status?: number;
+  code?: string;
+  type?: string;
+  message: string;
+}
+
+// Type guard for OpenAI API errors
+function isOpenAIApiError(error: unknown): error is OpenAIApiError {
+  return (
+    error instanceof Error &&
+    'status' in error &&
+    typeof (error as OpenAIApiError).status === 'number'
+  );
+}
 
 const router = Router();
 
@@ -109,9 +142,7 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | ImagesAp
 
   try {
     // Build request parameters based on model
-    // Note: We use 'as any' for dynamic parameters since they differ by model
-    // and we're already validating them at runtime
-    const requestParams: any = {
+    const requestParams: ImageGenerationRequestParams = {
       prompt: prompt as string,
       n: Number(n),
       size: size as ImageSize,
@@ -121,7 +152,7 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | ImagesAp
     // Add quality parameter for DALL-E 3 and GPT Image 1.5
     // DALL-E 2 does not support quality parameter (always standard)
     if (quality && selectedModel !== 'dall-e-2') {
-      requestParams.quality = quality;
+      requestParams.quality = quality as ImageQuality | GPTImageQuality;
     }
 
     // Add style for DALL-E 3 only
@@ -131,12 +162,12 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | ImagesAp
 
     // Add output_format for GPT Image 1.5
     if (selectedModel === 'gpt-image-1.5' && output_format) {
-      requestParams.output_format = output_format;
+      requestParams.output_format = output_format as ImageOutputFormat;
     }
 
     // Add background for GPT Image 1.5
     if (selectedModel === 'gpt-image-1.5' && background) {
-      requestParams.background = background;
+      requestParams.background = background as GPTImageBackground;
     }
 
     const response = await openai.images.generate(requestParams);
@@ -153,13 +184,12 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | ImagesAp
     console.error('Image generation error:', error);
 
     // Check for OpenAI API errors with specific status codes
-    const apiError = error as any;
-    if (apiError.status) {
+    if (isOpenAIApiError(error) && error.status) {
       // Handle specific OpenAI error statuses
-      const status = apiError.status;
-      const errorMessage = apiError.message || 'API request failed';
-      const errorCode = apiError.code || '';
-      const errorType = apiError.type || '';
+      const status = error.status;
+      const errorMessage = error.message || 'API request failed';
+      const errorCode = error.code || '';
+      const errorType = error.type || '';
 
       // Return appropriate status code based on error type
       if (status === 403 || errorCode === 'model_not_found') {

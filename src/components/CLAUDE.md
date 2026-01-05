@@ -8,10 +8,16 @@ This directory contains reusable React components for the DALL-E 3 Web UI. All c
 
 ## Components Overview
 
-| Component | Purpose | Props |
-|-----------|---------|-------|
-| `ThemedApp.tsx` | Ant Design ConfigProvider wrapper | `children: ReactNode` |
-| `ThemeToggle.tsx` | Dark/light mode toggle button | None |
+| Component | Purpose | File |
+|-----------|---------|------|
+| `ThemedApp` | Ant Design ConfigProvider wrapper | `ThemedApp.tsx` |
+| `ThemeToggle` | Dark/light mode toggle button | `ThemeToggle.tsx` |
+| `EmptyState` | Placeholder when no images generated | `EmptyState.tsx` |
+| `ErrorBoundary` | Error catching and fallback UI | `ErrorBoundary.tsx` |
+| `PromptInputSection` | Prompt textarea with character count | `PromptInputSection.tsx` |
+| `SettingsGrid` | Model/quality/size/style controls | `SettingsGrid.tsx` |
+| `ImageResultsGrid` | Generated images display grid | `ImageResultsGrid.tsx` |
+| `PreviewModal` | Full-screen image preview modal | `PreviewModal.tsx` |
 
 ## Component Details
 
@@ -38,15 +44,6 @@ interface ThemedAppProps {
 - Light background: `#f8f9fc`
 - Border radius: 6px (global default for Ant Design components)
 
-**Usage:**
-```tsx
-<ThemedApp>
-  <App />
-</ThemedApp>
-```
-
-**Note:** This component was migrated from Next.js AppProps pattern to accept children directly.
-
 ---
 
 ### `ThemeToggle.tsx`
@@ -60,31 +57,223 @@ interface ThemedAppProps {
 - Sun icon for light mode, moon icon for dark mode
 - Hover and tap animations
 - Positioned in top-right corner
-- Updates both React state and DOM classes
-
-**Animation Details:**
-```typescript
-// Scale animation on hover/tap
-scale: hovered ? 1.1 : 1
-
-// Opacity transition
-opacity: isDark ? 0 : 1 (sun)
-opacity: isDark ? 1 : 0 (moon)
-```
 
 **Theme Persistence:**
 - Saves preference to localStorage
 - Respects system preference on first visit
 - Updates `html` element class (`dark-theme`/`light-theme`)
 
+---
+
+### `EmptyState.tsx`
+
+**Purpose:** Placeholder component displayed when no images have been generated.
+
+**Props:**
+```typescript
+import type { Variants } from 'framer-motion';
+
+export interface EmptyStateProps {
+  variants?: Variants;
+}
+```
+
+**Features:**
+- Centered icon and message
+- "Ready to Create" heading
+- Encouraging description text
+- Memoized for performance
+
 **Usage:**
 ```tsx
-import { ThemeToggle } from './components/ThemeToggle';
+import { EmptyState } from './components/EmptyState';
 
-<ThemeToggle />
+<EmptyState variants={staggerChildren} />
 ```
 
 ---
+
+### `ErrorBoundary.tsx`
+
+**Purpose:** Class component that catches React errors and displays a fallback UI.
+
+**State:**
+```typescript
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+```
+
+**Features:**
+- Catches errors in component tree
+- Logs error details to console
+- Displays user-friendly error message
+- "Try again" button to reset error state
+- Preserves error stack trace for debugging
+
+**Usage:**
+```tsx
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+<ErrorBoundary>
+  <App />
+</ErrorBoundary>
+```
+
+---
+
+### `PromptInputSection.tsx`
+
+**Purpose:** Textarea component for entering image generation prompts with dynamic character count.
+
+**Props:**
+```typescript
+export interface PromptInputSectionProps {
+  prompt: string;
+  promptLimit: number;
+  onPromptChange: (value: string) => void;
+  onGenerate: () => void;
+  isGenerating: boolean;
+  disabled?: boolean;
+}
+```
+
+**Features:**
+- Auto-resizing textarea (120px to 400px height)
+- Real-time character count display
+- Model-specific prompt limits (1000 for DALL-E 2, 4000 for DALL-E 3, 32000 for GPT Image 1.5)
+- Visual warning when approaching limit
+- Generate button integrated below textarea
+- Memoized to prevent unnecessary re-renders
+
+**Dependencies:**
+- `useAutoResizeTextArea` hook for auto-resize behavior
+
+---
+
+### `SettingsGrid.tsx`
+
+**Purpose:** Grid of dropdown selectors for generation parameters (model, quality, size, style, output format, background).
+
+**Props:**
+```typescript
+export interface SettingsGridProps {
+  model: string | null;
+  onModelChange: (model: string) => void;
+  availableModels: ModelOption[];
+  configLoading: boolean;
+  quality: ImageQuality | GPTImageQuality;
+  onQualityChange: (quality: ImageQuality | GPTImageQuality) => void;
+  size: ImageSize;
+  onSizeChange: (size: ImageSize) => void;
+  number: number;
+  onNumberChange: (number: number) => void;
+  style: ImageStyle;
+  onStyleChange: (style: ImageStyle) => void;
+  outputFormat: ImageOutputFormat;
+  onOutputFormatChange: (format: ImageOutputFormat) => void;
+  background: GPTImageBackground;
+  onBackgroundChange: (background: GPTImageBackground) => void;
+  isGenerationInProgress: boolean;
+}
+```
+
+**Features:**
+- Model selection (DALL-E 3, DALL-E 2, GPT Image 1.5)
+- Consistent 4-column grid layout for tidy appearance
+- Helper components for code reusability:
+  - `SelectLabel` - Label with optional tooltip
+  - `DisabledControl` - Wraps controls with tooltip when disabled
+  - `SelectControlItem` - Combines label, control wrapper, and column
+- Visual grouping with Divider for model-specific options
+- Semantic predicate functions (shouldShowQuality, shouldShowStyle, shouldShowBackground)
+- Controls disabled during generation with helpful tooltips
+- Custom comparison for React.memo to prevent unnecessary re-renders
+
+**Model-Specific Options:**
+| Feature | DALL-E 2 | DALL-E 3 | GPT Image 1.5 |
+|---------|----------|----------|---------------|
+| Quality | Standard only | Standard, HD | Auto, High, Medium, Low |
+| Sizes | 256x256, 512x512, 1024x1024 | 1024x1024, 1024x1792, 1792x1024 | Auto, 1024x1024, 1536x1024, 1024x1536 |
+| Style | Not supported | Vivid, Natural | Not supported |
+| Output Format | WebP, PNG, JPEG | WebP, PNG, JPEG | WebP, PNG, JPEG |
+| Background | Not supported | Not supported | Auto, Transparent, Opaque |
+
+---
+
+### `ImageResultsGrid.tsx`
+
+**Purpose:** Grid display for generated images with loading, success, and error states.
+
+**Props:**
+```typescript
+export interface ImageResultsGridProps {
+  images: ImageGenerationItem[];
+  onImageClick: (result: OpenAIImageResult, index: number) => void;
+  onRetry: (index: number) => void;
+}
+```
+
+**Features:**
+- Responsive grid layout (1-3 columns based on screen size)
+- Animated card reveals with stagger effect
+- Individual image states:
+  - **Loading:** Skeleton loader with animation
+  - **Success:** Image thumbnail with action buttons
+  - **Error:** Error message with retry button
+- Progressive image display (images appear as they complete)
+- Framer Motion AnimatePresence for smooth transitions
+- Memoized to prevent unnecessary re-renders
+
+**Sub-components:**
+- `ImageCard` - Individual image card with state-based rendering
+
+**Action Buttons (Success State):**
+- Preview (opens modal)
+- Download (saves to local file)
+
+---
+
+### `PreviewModal.tsx`
+
+**Purpose:** Full-screen modal for viewing generated images with zoom, pan, and navigation controls.
+
+**Props:**
+```typescript
+export interface PreviewModalProps {
+  navigationImages: OpenAIImageResult[];
+  currentNavIndex: number;
+  onClose: () => void;
+  onNavigatePrevious: () => void;
+  onNavigateNext: () => void;
+  getDisplayUrl: (result: OpenAIImageResult) => string | null;
+}
+```
+
+**Features:**
+- Zoom controls (50% to 500%):
+  - Slider control
+  - +/- buttons
+  - Scroll wheel with Ctrl/Cmd key
+  - Keyboard: +/- keys
+- Pan: Click and drag when zoomed in or in actual size mode
+- Fit modes: Contain, Actual (100%), Fill
+- Fullscreen toggle (F11 or button)
+- Image navigation: Arrow keys or swipe gestures
+- Keyboard shortcuts:
+  - ESC: Close modal
+  - 0: Reset zoom
+  - F: Cycle fit modes
+
+**UI Elements:**
+- **Centered Floating Control Bar** - Pill-style control bar with backdrop blur, centered at bottom
+- **Keyboard Shortcuts Hint** - Top-center overlay showing available keyboard shortcuts
+- Control bar background: White with 0.2 opacity (dark mode), Black with 0.2 opacity (light mode)
+- All corners rounded (12px) for floating appearance
+
+**Lazy Loading:**
+Loaded using `React.lazy()` for code splitting. Initial bundle size reduced by ~70 kB.
 
 ## Common Patterns
 
@@ -93,7 +282,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 All components use Ant Design components with custom theming:
 
 ```tsx
-import { Modal, Button } from 'antd';
+import { Modal, Button, Select, Input } from 'antd';
 
 <Modal
   title="Title"
@@ -110,15 +299,21 @@ import { Modal, Button } from 'antd';
 Used for smooth transitions:
 
 ```tsx
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
-<motion.div
-  whileHover={{ scale: 1.1 }}
-  whileTap={{ scale: 0.95 }}
-  transition={{ duration: 0.2 }}
->
-  {children}
-</motion.div>
+<AnimatePresence mode="wait">
+  {items.map(item => (
+    <motion.div
+      key={item.id}
+      variants={cardVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
+      {item.content}
+    </motion.div>
+  ))}
+</AnimatePresence>
 ```
 
 ### TypeScript Props
@@ -130,9 +325,22 @@ interface ComponentProps {
   // prop definitions
 }
 
-export function Component({ prop1, prop2 }: ComponentProps) {
+export const Component = memo(function Component({ prop1, prop2 }: ComponentProps) {
   // component logic
-}
+});
+```
+
+### Memoization
+
+Most components use `React.memo` with custom comparison:
+
+```tsx
+export const Component = memo(ComponentImpl, (prevProps, nextProps) => {
+  return (
+    prevProps.prop1 === nextProps.prop1 &&
+    prevProps.prop2 === nextProps.prop2
+  );
+});
 ```
 
 ## Dependencies
@@ -140,13 +348,36 @@ export function Component({ prop1, prop2 }: ComponentProps) {
 - **react** 19.2.3 - Component library
 - **antd** 6.1.3 - UI components
 - **framer-motion** 12.23.26 - Animations
+- **react-lazy-load-image-component** 1.6.3 - Lazy loading for images
+- **@types/react** - TypeScript definitions
 - **../lib/theme** - Theme context hook
+- **../stores/useImageStore** - Zustand state management
+- **../contexts** - React contexts (GenerationContext, ImageContext)
 - **../../types** - Shared TypeScript types
+- **../hooks** - Custom hooks (useAutoResizeTextArea, useImagePreview, usePreviewControls, useImagePreload)
+- **../lib/utils/blobUrl** - Blob URL utilities
+- **../lib/api** - API client functions
+- **../lib/cache/imageDownloadCache** - LRU cache for converted images
+- **../lib/metrics/imagePerformance** - Performance tracking
+
+## Testing
+
+Component tests are located in `src/components/__tests__/`:
+
+- `ThemeToggle.test.tsx` - Theme toggle functionality
+- `ErrorBoundary.test.tsx` - Error catching and fallback UI
+
+Test files use:
+- **vitest** - Test runner
+- **@testing-library/react** - Component testing utilities
+- **@testing-library/user-event** - User interaction simulation
 
 ## Notes
 
-- All components are functional components (no classes)
+- All components are functional components (no classes except ErrorBoundary)
 - TypeScript strict mode is enabled
-- No Next.js-specific code (fully migrated)
+- No Next.js-specific code (fully migrated to Rsbuild)
 - Components are server-side render compatible
 - Theme switching updates CSS variables globally
+- Memoization used to prevent unnecessary re-renders
+- Code splitting implemented for PreviewModal

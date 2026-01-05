@@ -56,7 +56,7 @@ Generates images using OpenAI DALL-E API.
 #### `POST /api/download`
 Converts images to different formats using Sharp.
 - Body: `{ imageUrl, format }`
-- Supported formats: webp, png, jpg, jpeg, gif, avif
+- Supported formats: webp, png, jpeg
 - Returns base64 encoded image
 
 ### `GET /health`

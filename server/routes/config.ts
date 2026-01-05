@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { getServerConfig } from '../lib/config';
+
 import type { ConfigApiResponse, ConfigApiErrorResponse } from '../../types';
+import { getServerConfig } from '../lib/config';
 
 const router = Router();
 

@@ -82,8 +82,36 @@ src/
   components/
     ThemedApp.tsx    # Ant Design ConfigProvider wrapper
     ThemeToggle.tsx  # Dark/light mode toggle button
+    EmptyState.tsx   # Placeholder when no images generated
+    ErrorBoundary.tsx # Error catching and fallback UI
+    PromptInputSection.tsx # Prompt textarea with character count
+    SettingsGrid.tsx # Model/quality/size/style controls
+    ImageResultsGrid.tsx # Generated images display grid
+    PreviewModal.tsx # Full-screen image preview modal
+  hooks/
+    useAutoResizeTextArea.ts # Auto-resizing textarea
+    useImageGeneration.ts # Image generation with retry logic
+    useImagePreview.ts # Image preview modal state
+    usePreviewControls.ts # Preview zoom/pan/fit controls
+    useImagePreload.ts # Image preloading for navigation
+  contexts/
+    GenerationContext.tsx # Generation state provider
+    ImageContext.tsx # Image preview navigation state
   lib/
     theme.tsx        # Theme context and providers
+    api-client.ts    # Core API client with axios
+    api/
+      config.ts      # Server configuration API
+      image-generation.ts # Image generation with Zod
+      download.ts    # Image format conversion API
+    utils/
+      blobUrl.ts     # Blob URL utilities for memory efficiency
+    metrics/
+      imagePerformance.ts # Performance metrics tracking
+    cache/
+      imageDownloadCache.ts # LRU cache for converted images
+  stores/
+    useImageStore.ts # Zustand state management store
   styles/
     globals.css      # Global CSS with Tailwind v4
 
@@ -110,7 +138,7 @@ index.html           # HTML template for SPA
 #### Backend
 - `server/index.ts` - Express server with middleware, CORS, route mounting
 - `server/routes/images.ts` - OpenAI SDK integration for DALL-E
-- `server/routes/download.ts` - Sharp image processing (PNG, JPG, GIF, AVIF, WebP)
+- `server/routes/download.ts` - Sharp image processing (WebP, PNG, JPEG)
 - `server/routes/config.ts` - Server configuration and model options
 
 #### Shared
@@ -132,6 +160,10 @@ index.html           # HTML template for SPA
 - **Toast Notifications**: sonner 2.0.7
 - **Concurrency Control**: p-limit 7.2.0
 - **Rate Limiting**: express-rate-limit 8.2.1
+- **State Management**: zustand 5.0.9
+- **Runtime Validation**: zod 4.3.5
+- **Image Preloading**: react-window 2.2.3
+- **Lazy Loading**: react-lazy-load-image-component 1.6.3
 - **Runtime**: Node.js >= 24.0.0
 
 ### TypeScript Configuration
@@ -226,6 +258,9 @@ type GPTImageQuality = 'auto' | 'high' | 'medium' | 'low';
 type GPTImageOutputFormat = 'png' | 'jpeg' | 'webp';
 type GPTImageBackground = 'auto' | 'transparent' | 'opaque';
 
+// Universal output format for all models
+type ImageOutputFormat = 'webp' | 'png' | 'jpeg';
+
 // All sizes across models
 type ImageSize =
   | '1024x1024'    // Common square size (all models)
@@ -236,8 +271,6 @@ type ImageSize =
   | 'auto'         // GPT Image 1.5 auto size
   | '1536x1024'    // GPT Image 1.5 landscape
   | '1024x1536';   // GPT Image 1.5 portrait
-
-type DownloadFormat = 'webp' | 'png' | 'jpg' | 'jpeg' | 'gif' | 'avif';
 
 // API responses
 interface ImagesApiResponse { result: OpenAIImageResult[]; }
@@ -292,10 +325,21 @@ interface ConfigApiResponse { availableModels: ModelOption[]; baseURL: string; }
   - Fullscreen toggle: F11 key or button
   - Navigation: Arrow keys or swipe gestures for multiple images
   - Keyboard shortcuts: ESC (close), 0 (reset zoom)
+  - Preloading: Adjacent images preload in background for instant navigation
 - **Progressive Image Generation:**
   - DALL-E 3 images appear progressively as they complete
   - Progress counter shows completed/total images
   - Failed images can be retried individually
+- **Performance Optimizations:**
+  - Blob URL conversion reduces memory usage by ~90% compared to base64 data URLs
+  - LRU cache for converted images prevents redundant format conversions
+  - Image preloading for smooth navigation
+  - Performance metrics tracking for monitoring optimization effectiveness
+  - Automatic cleanup of Blob URLs to prevent memory leaks
+- **State Management:**
+  - Zustand store (useImageStore) provides single source of truth for all image-related state
+  - Consolidates GenerationContext and ImageContext functionality
+  - DevTools integration for debugging in development mode
 - Dark/light theme toggle with animated sun/moon icons in the top-right corner
 - Theme preference is saved to localStorage and persists across sessions
 - System preference detection sets initial theme based on user's OS setting

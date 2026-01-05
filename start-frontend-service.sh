@@ -30,6 +30,15 @@ while IFS= read -r line || [ -n "$line" ]; do
 done < "$ENV_FILE"
 
 echo "Environment variables loaded from $ENV_FILE"
+
+# Check if port 3000 is already in use
+if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo "Error: Port 3000 is already in use!"
+    echo "Please stop the existing service before starting a new one."
+    echo "You can find the process using: lsof -i :3000"
+    exit 1
+fi
+
 echo "Starting frontend service on port 3000..."
 echo ""
 

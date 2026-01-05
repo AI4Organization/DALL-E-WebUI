@@ -10,7 +10,18 @@ This directory contains client-side utility modules and React contexts for the f
 
 ```
 src/lib/
-└── theme.tsx    # Theme context and provider
+├── theme.tsx          # Theme context and provider
+├── api-client.ts      # Core API client with axios and interceptors
+├── api/               # API functions with Zod validation
+│   ├── config.ts      # Server configuration API
+│   ├── image-generation.ts # Image generation with Zod
+│   └── download.ts    # Image format conversion API
+├── utils/             # Utility functions
+│   └── blobUrl.ts     # Blob URL utilities for memory efficiency
+├── metrics/           # Performance tracking
+│   └── imagePerformance.ts # Performance metrics tracking
+└── cache/             # Caching utilities
+    └── imageDownloadCache.ts # LRU cache for converted images
 ```
 
 ## Modules
@@ -19,193 +30,120 @@ src/lib/
 
 **Purpose:** Provides React context for dark/light theme management with localStorage persistence and system preference detection.
 
-#### Types
+See main documentation below for full details.
+
+### `api-client.ts` - Core API Client
+
+**Purpose:** Provides centralized HTTP client with interceptors and error handling.
+
+**Classes:**
+
+#### `ApiError`
+
+Custom error class for API failures.
 
 ```typescript
-type Theme = 'dark' | 'light';
-
-interface ThemeContextType {
-  theme: Theme;           // Current theme
-  toggleTheme: () => void;  // Switch between themes
-  mounted: boolean;       // Hydration state
-}
-```
-
-#### Exported Components
-
-##### `ThemeProvider`
-React context provider for theme management.
-
-**Props:**
-```typescript
-interface ThemeProviderProps {
-  children: ReactNode;
-}
-```
-
-**Features:**
-- Manages theme state (dark/light)
-- Persists theme to localStorage
-- Detects system preference on first load
-- Updates DOM classes for CSS variables
-- Prevents hydration mismatch with `mounted` state
-
-**Lifecycle:**
-
-1. **Initial Mount:**
-   - Sets `mounted` to `true` after hydration
-   - Checks localStorage for saved theme
-   - Falls back to system preference if no saved theme
-
-2. **Theme Change:**
-   - Updates `theme` state
-   - Updates DOM: `document.documentElement.classList`
-   - Saves to localStorage
-
-**CSS Classes:**
-- `.dark-theme` - Applied when dark mode is active
-- `.light-theme` - Applied when light mode is active
-
-**Hydration Safety:**
-- Always renders with default theme until `mounted = true`
-- Prevents React hydration mismatch errors
-- Ensures consistent SSR/client rendering
-
-#### Exported Hooks
-
-##### `useTheme()`
-Hook to access theme context.
-
-**Returns:** `ThemeContextType`
-
-**Throws:** Error if used outside `ThemeProvider`
-
-```typescript
-const { theme, toggleTheme, mounted } = useTheme();
-```
-
-## Usage Examples
-
-### Setting Up Theme Provider
-
-```tsx
-// In src/index.tsx
-import { ThemeProvider } from './lib/theme';
-import { ThemedApp } from './components/ThemedApp';
-import App from './App';
-
-root.render(
-  <ThemeProvider>
-    <ThemedApp>
-      <App />
-    </ThemedApp>
-  </ThemeProvider>
-);
-```
-
-### Using Theme in Components
-
-```tsx
-import { useTheme } from '../lib/theme';
-
-function MyComponent() {
-  const { theme, toggleTheme, mounted } = useTheme();
-
-  if (!mounted) {
-    return null;  // Prevent hydration mismatch
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+    public details?: string[]
+  ) {
+    super(message);
+    this.name = 'ApiError';
   }
-
-  return (
-    <div className={`${theme}-theme`}>
-      <button onClick={toggleTheme}>
-        Switch to {theme === 'dark' ? 'light' : 'dark'} mode
-      </button>
-    </div>
-  );
 }
 ```
 
-### Conditional Rendering Based on Theme
+#### `apiClient`
 
-```tsx
-const { theme } = useTheme();
+Singleton axios instance with pre-configured settings.
 
-{theme === 'dark' && <DarkModeContent />}
-{theme === 'light' && <LightModeContent />}
-```
+**Configuration:**
+- **Base URL:** `process.env.API_BASE_URL` or `http://localhost:3001`
+- **Timeout:** 2 minutes (120,000ms)
+- **Headers:**
+  - `Content-Type: application/json`
+  - `X-Request-ID` - Unique UUID for each request
 
-## Theme CSS Variables
+**Request Interceptor:** Adds unique request ID header for tracing.
 
-The theme works with CSS variables defined in `src/styles/globals.css`:
+**Response Interceptor:** Transforms errors to `ApiError` instances.
 
-**Dark Theme Variables:**
-```css
-.dark-theme {
-  --color-background: #0a0a12;
-  --color-text-primary: #ffffff;
-  --color-card-bg: rgba(15, 15, 25, 0.85);
-  /* ... */
-}
-```
+**Retry Logic:** Automatic retry with exponential backoff for retryable status codes (500, 502, 503, 504).
 
-**Light Theme Variables:**
-```css
-.light-theme {
-  --color-background: #f8f9fc;
-  --color-text-primary: #1a1a2e;
-  --color-card-bg: rgba(255, 255, 255, 0.95);
-  /* ... */
-}
-```
+### `api/` - API Functions
 
-## Storage
+#### `config.ts` - Server Configuration API
 
-### localStorage Key
-```typescript
-localStorage.setItem('theme', 'dark' | 'light');
-```
+**Purpose:** Fetches server configuration and available models.
 
-### System Preference Detection
-```typescript
-window.matchMedia('(prefers-color-scheme: dark)').matches
-```
+See `api/CLAUDE.md` for detailed documentation.
+
+#### `image-generation.ts` - Image Generation API
+
+**Purpose:** Generates images using OpenAI's DALL-E 3, DALL-E 2, and GPT Image 1.5 APIs.
+
+See `api/CLAUDE.md` for detailed documentation.
+
+#### `download.ts` - Image Conversion API
+
+**Purpose:** Converts images to different formats via backend Sharp processing.
+
+See `api/CLAUDE.md` for detailed documentation.
+
+### `utils/` - Utility Functions
+
+#### `blobUrl.ts` - Blob URL Utilities
+
+**Purpose:** Converts base64 image data to Blob URLs for efficient memory usage (~90% reduction).
+
+See `utils/CLAUDE.md` for detailed documentation.
+
+### `metrics/` - Performance Metrics
+
+#### `imagePerformance.ts` - Performance Tracking
+
+**Purpose:** Tracks image loading and download performance metrics.
+
+See `metrics/CLAUDE.md` for detailed documentation.
+
+### `cache/` - Caching Utilities
+
+#### `imageDownloadCache.ts` - Image Download Cache
+
+**Purpose:** LRU cache for storing converted image downloads.
+
+See `cache/CLAUDE.md` for detailed documentation.
 
 ## Dependencies
 
-- **react** - Context and hooks (createContext, useContext, useState, useEffect)
-- **react-dom** - DOM manipulation (document.documentElement)
+- **react** - Context and hooks (for theme.tsx)
+- **react-dom** - DOM manipulation (for theme.tsx)
+- **axios** - HTTP client (for api-client.ts)
+- **../../types** - Shared TypeScript interfaces
+- **zod** - Runtime type validation (for api/)
 
 ## Adding New Utilities
 
 When adding new utilities to this directory:
 
-1. Create file with descriptive name
+1. Create file in appropriate subdirectory (utils/, metrics/, cache/, api/)
 2. Export functions/components
 3. Add TypeScript types
 4. Update this documentation
-5. Consider client-side only code (use 'use client' directive)
-
-### Example: API Utility
-
-```typescript
-// api.ts
-'use client';
-
-import axios from 'axios';
-
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3001';
-
-export async function generateImages(params: ImageGenerationParams) {
-  const response = await axios.post(`${API_BASE_URL}/api/images`, params);
-  return response.data;
-}
-```
+5. Consider client-side only code
 
 ## Notes
 
-- Theme context is client-side only (marked with 'use client')
+- Theme context is client-side only
 - `mounted` state prevents hydration mismatch
 - localStorage persists theme across sessions
 - System preference detected on first visit only
 - Theme changes update CSS variables globally
 - Works with Ant Design ConfigProvider in `ThemedApp.tsx`
+- API client provides centralized HTTP communication
+- Zod schemas validate all API responses
+- Blob URL utilities reduce memory usage by ~90%
+- Performance metrics tracking for optimization monitoring
+- LRU cache prevents redundant format conversions
