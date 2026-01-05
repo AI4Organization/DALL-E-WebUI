@@ -36,7 +36,7 @@ export const ImageGenerationResponseSchema = z.object({
 export interface ImageGenerationParams {
   /** Text prompt for image generation */
   prompt: string;
-  /** Model identifier (dall-e-2, dall-e-3, gpt-image-1.5) */
+  /** Model identifier (dall-e-2, dall-e-3, gpt-image-1.5-2025-12-16) */
   model: string;
   /** Number of images to generate (1-10) */
   n: number;
@@ -131,12 +131,12 @@ export async function generateImages(
     }
 
     // Add response_format (GPT Image 1.5 only)
-    if (response_format && model === 'gpt-image-1.5') {
+    if (response_format && model === 'gpt-image-1.5-2025-12-16') {
       payload.response_format = response_format;
     }
 
     // Add background (GPT Image 1.5 only)
-    if (background && model === 'gpt-image-1.5') {
+    if (background && model === 'gpt-image-1.5-2025-12-16') {
       payload.background = background;
     }
 

@@ -109,7 +109,7 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | ImagesAp
   }
 
   // Validate GPT Image 1.5 specific parameters
-  if (selectedModel === 'gpt-image-1.5') {
+  if (selectedModel === 'gpt-image-1.5-2025-12-16') {
     const gptImageValidation = validateGPTImage15Params({
       quality: quality as string,
       output_format: output_format as string,
@@ -161,12 +161,12 @@ router.post('/', async (req: Request, res: Response<ImagesApiResponse | ImagesAp
     }
 
     // Add output_format for GPT Image 1.5
-    if (selectedModel === 'gpt-image-1.5' && output_format) {
+    if (selectedModel === 'gpt-image-1.5-2025-12-16' && output_format) {
       requestParams.output_format = output_format as ImageOutputFormat;
     }
 
     // Add background for GPT Image 1.5
-    if (selectedModel === 'gpt-image-1.5' && background) {
+    if (selectedModel === 'gpt-image-1.5-2025-12-16' && background) {
       requestParams.background = background as GPTImageBackground;
     }
 
