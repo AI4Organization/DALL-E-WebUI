@@ -125,7 +125,7 @@ export function useImageGeneration(
   style: ImageStyle,
   outputFormat: ImageOutputFormat,
   background: GPTImageBackground,
-  options: UseImageGenerationOptions = {}
+  _options: UseImageGenerationOptions = {}
 ): UseImageGenerationReturn {
   // AbortController for cancelling in-flight requests
   const abortControllerRef = useRef<AbortController | null>(null);

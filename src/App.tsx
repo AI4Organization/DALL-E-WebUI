@@ -10,20 +10,15 @@ import {
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import pLimit from 'p-limit';
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { toast } from 'sonner';
 
 import type {
   OpenAIImageResult,
   ModelOption,
-  ImageQuality,
   ImageSize,
-  ImageStyle,
   ImageGenerationItem,
   ImageGenerationStatus,
-  GPTImageQuality,
-  ImageOutputFormat,
-  GPTImageBackground,
 } from '../types';
 import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../types';
 
@@ -182,11 +177,9 @@ export default function App(): React.ReactElement {
   const setLoading = useImageStore((state) => state.setGenerating);
   const setGenerationItems = useImageStore((state) => state.setItems);
   const updateItem = useImageStore((state) => state.updateItem);
-  const addItem = useImageStore((state) => state.addItem);
   const clearItems = useImageStore((state) => state.clearItems);
 
   // Preview state
-  const previewImage = useImageStore((state) => state.previewImage);
   const navigationImages = useImageStore((state) => state.navigationImages);
   const currentNavIndex = useImageStore((state) => state.currentNavIndex);
 
@@ -202,13 +195,9 @@ export default function App(): React.ReactElement {
   const [isGenerationInProgress, setIsGenerationInProgress] = useState<boolean>(false);
 
   // Zoom & Pan State (handled by useImagePreview hook in PreviewModal)
-  const [, setZoomLevel] = useState<number>(100);  // 50% to 500%
-  const [, setPanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [, setIsDragging] = useState<boolean>(false);
-  const [fitMode, setFitMode] = useState<'contain' | 'actual' | 'fill'>('contain');
-
-  // Fullscreen State
-  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [, _setZoomLevel] = useState<number>(100);  // 50% to 500%
+  const [, _setPanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [, _setIsDragging] = useState<boolean>(false);
 
   // Set document title
   useEffect(() => {
@@ -225,14 +214,14 @@ export default function App(): React.ReactElement {
     if (model) {
       setSize(getDefaultSizeForModel(model));
     }
-  }, [model]);
+  }, [model, setSize]);
 
   // Fallback: if current size becomes invalid for current model, reset to default
   useEffect(() => {
     if (model && !isSizeValidForModel(size, model)) {
       setSize(getDefaultSizeForModel(model));
     }
-  }, [model, size]);
+  }, [model, size, setSize]);
 
   useEffect(() => {
     if (model === 'gpt-image-1.5') {
@@ -242,7 +231,7 @@ export default function App(): React.ReactElement {
     } else if (model === 'dall-e-3') {
       setQuality('standard');
     }
-  }, [model]);
+  }, [model, setQuality]);
 
   useEffect(() => {
     const fetchConfig = async (): Promise<void> => {
@@ -290,7 +279,7 @@ export default function App(): React.ReactElement {
       const defaultModel = availableModels.find((m: ModelOption) => m.value === 'dall-e-3')?.value ?? availableModels[0]?.value ?? null;
       setModel(defaultModel);
     }
-  }, [configLoading, availableModels, model]);
+  }, [configLoading, availableModels, model, setModel]);
 
   // ============ Handlers ============
   const getImages = useCallback(async (): Promise<void> => {
@@ -476,7 +465,7 @@ export default function App(): React.ReactElement {
       setLoading(false);
       setIsGenerationInProgress(false);
     }
-  }, [model, prompt, number, quality, size, style, outputFormat, background]);
+  }, [model, prompt, number, quality, size, style, outputFormat, background, clearItems, setGenerationItems, setLoading, updateItem, setIsGenerationInProgress]);
 
   const download = useCallback(async (imageUrl: string): Promise<void> => {
     try {
@@ -587,43 +576,6 @@ export default function App(): React.ReactElement {
       openPreviewContext(targetImage, clickedNavIndex >= 0 ? clickedNavIndex : 0, allSuccessfulImages);
     }
   }, [generationItems, openPreviewContext]);
-
-  // ============ Zoom & Pan Handlers ============
-  const handleZoomIn = useCallback((): void => {
-    setZoomLevel(prev => Math.min(prev + 25, 500));
-  }, []);
-
-  const handleZoomOut = useCallback((): void => {
-    setZoomLevel(prev => Math.max(prev - 25, 50));
-  }, []);
-
-  const handleZoomReset = useCallback((): void => {
-    setZoomLevel(100);
-    setPanPosition({ x: 0, y: 0 });
-    setFitMode('contain');
-  }, []);
-
-  const handleFitModeChange = useCallback((mode: 'contain' | 'actual' | 'fill'): void => {
-    setFitMode(mode);
-    if (mode === 'contain') {
-      setZoomLevel(100);
-      setPanPosition({ x: 0, y: 0 });
-    } else if (mode === 'actual') {
-      setZoomLevel(100);
-      setPanPosition({ x: 0, y: 0 });
-    } else if (mode === 'fill') {
-      setZoomLevel(100);
-      setPanPosition({ x: 0, y: 0 });
-    }
-  }, []);
-
-  const handleMouseUp = useCallback((): void => {
-    setIsDragging(false);
-  }, []);
-
-  const handleFullscreenToggle = (): void => {
-    setIsFullscreen(prev => !prev);
-  };
 
   // TEMPORARILY DISABLED: Global keyboard/mouse listeners to debug infinite loop issue
   // // Ref to store latest handlers for event listeners

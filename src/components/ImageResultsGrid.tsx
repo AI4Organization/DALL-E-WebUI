@@ -11,10 +11,9 @@ import {
   Card,
   Button,
 } from 'antd';
-import { motion } from 'framer-motion';
-import { memo, useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { memo, useState, useEffect } from 'react';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
-import { Grid } from 'react-window';
 import 'react-lazy-load-image-component/src/effects/blur.css';
 import 'react-lazy-load-image-component/src/effects/opacity.css';
 
@@ -42,7 +41,7 @@ export interface ImageResultsGridProps {
 
 // Memoized individual card components
 const LoadingCard = memo<{ id: number }>(({ id }) => (
-  <Card className="glass-card overflow-hidden !border-0">
+  <Card className="glass-card overflow-hidden border-0!">
     <div className="flex flex-col items-center justify-center py-12" style={{ minHeight: 360 }}>
       <div className="relative">
         <motion.div
@@ -69,7 +68,7 @@ const LoadingCard = memo<{ id: number }>(({ id }) => (
 LoadingCard.displayName = 'LoadingCard';
 
 const ErrorCard = memo<{ id: number; error?: string; onRetry: () => void }>(({ id, error, onRetry }) => (
-  <Card className="glass-card overflow-hidden !border-0 !border-red-500/30">
+  <Card className="glass-card overflow-hidden border-0! border-red-500/30!">
     <div className="flex flex-col items-center justify-center py-8 text-center" style={{ minHeight: 360 }}>
       <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
         <CloseCircleOutlined className="text-4xl text-red-400" />
@@ -84,7 +83,7 @@ const ErrorCard = memo<{ id: number; error?: string; onRetry: () => void }>(({ i
         type="primary"
         icon={<ReloadOutlined />}
         onClick={onRetry}
-        className="!bg-accent-purple !border-accent-purple hover:!bg-accent-purple/80"
+        className="bg-accent-purple! border-accent-purple! hover:bg-accent-purple/80!"
       >
         Retry
       </Button>
@@ -101,7 +100,7 @@ const SuccessCard = memo<{
   canDownload: boolean;
   onPreview: () => void;
   onDownload: () => void;
-}>(({ id, result, prompt, imageUrl, canDownload, onPreview, onDownload }) => {
+}>(({ id, result: _result, prompt: _prompt, imageUrl, canDownload, onPreview, onDownload }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -119,7 +118,7 @@ const SuccessCard = memo<{
   return (
   <Card
     hoverable
-    className="glass-card overflow-hidden !border-0 transition-all duration-300"
+    className="glass-card overflow-hidden border-0! transition-all duration-300"
     bodyStyle={{ padding: 0 }}
     style={{
       boxShadow: isHovered ? '0 20px 40px rgba(168, 85, 247, 0.15)' : 'none',
@@ -275,18 +274,14 @@ export const ImageResultsGrid = memo<ImageResultsGridProps>(({
   getDisplayUrl,
   hasDownloadableImage,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [gridWidth, setGridWidth] = useState(1200);
+  // Calculate column count based on window width
   const [columnCount, setColumnCount] = useState(3);
 
-  // Calculate column count based on container width
+  // Calculate column count based on window width
   useEffect(() => {
-    const updateGridSize = () => {
-      if (containerRef.current) {
-        const width = containerRef.current.offsetWidth;
-        setGridWidth(width);
-
-        // Calculate columns based on breakpoints
+    const updateColumnCount = () => {
+      if (typeof window !== 'undefined') {
+        const width = window.innerWidth;
         if (width < 576) {
           setColumnCount(1); // xs
         } else if (width < 992) {
@@ -297,80 +292,16 @@ export const ImageResultsGrid = memo<ImageResultsGridProps>(({
       }
     };
 
-    updateGridSize();
-    window.addEventListener('resize', updateGridSize);
-    return () => window.removeEventListener('resize', updateGridSize);
+    updateColumnCount();
+    window.addEventListener('resize', updateColumnCount);
+    return () => window.removeEventListener('resize', updateColumnCount);
   }, []);
-
-  // Calculate grid dimensions
-  const rowHeight = 380; // Card height + gutter
-  const columnWidth = (gridWidth - (columnCount - 1) * 16) / columnCount; // 16px gutter
-  const rowCount = Math.ceil(items.length / columnCount);
 
   // Calculate progress stats
   const completedCount = items.filter(i => i.status === 'success').length;
   const failedCount = items.filter(i => i.status === 'error').length;
   const totalCount = items.length;
   const inProgress = items.some(i => i.status === 'pending' || i.status === 'loading');
-
-  // Render individual cell in the grid
-  const Cell = memo(({ columnIndex, rowIndex, style, data }: {
-    columnIndex: number;
-    rowIndex: number;
-    style: React.CSSProperties;
-    data: {
-      columnCount: number;
-      items: ImageGenerationItem[];
-      prompt: string;
-      onDownload: (imageUrl: string) => void;
-      onPreview: (result: OpenAIImageResult, index: number) => void;
-      onRetry: (id: number) => void;
-      getDisplayUrl: (result: OpenAIImageResult) => string | null;
-      hasDownloadableImage: (result: OpenAIImageResult) => boolean;
-    };
-  }) => {
-    const index = rowIndex * data.columnCount + columnIndex;
-    const item = data.items[index];
-
-    if (!item) return null;
-
-    return (
-      <div style={{ ...style, padding: '8px' }}>
-        {/* Loading Card */}
-        {(item.status === 'pending' || item.status === 'loading') && (
-          <LoadingCard id={item.id} />
-        )}
-
-        {/* Error Card */}
-        {item.status === 'error' && (
-          <ErrorCard
-            id={item.id}
-            error={item.error}
-            onRetry={() => data.onRetry(item.id)}
-          />
-        )}
-
-        {/* Success Card */}
-        {item.status === 'success' && item.result && (() => {
-          const imageUrl = data.getDisplayUrl(item.result);
-          const canDownload = data.hasDownloadableImage(item.result);
-          return imageUrl ? (
-            <SuccessCard
-              id={item.id}
-              result={item.result!}
-              prompt={data.prompt}
-              imageUrl={imageUrl}
-              canDownload={canDownload}
-              onPreview={() => data.onPreview(item.result!, item.id)}
-              onDownload={() => data.onDownload(imageUrl)}
-            />
-          ) : null;
-        })()}
-      </div>
-    );
-  });
-
-  Cell.displayName = 'VirtualCell';
 
   return (
     <motion.div
@@ -410,29 +341,58 @@ export const ImageResultsGrid = memo<ImageResultsGridProps>(({
         )}
       </div>
 
-      {/* Virtual Grid Container */}
-      <div ref={containerRef} className="w-full">
-        <Grid
-          columnCount={columnCount}
-          columnWidth={columnWidth}
-          height={Math.min(rowCount * rowHeight, 800)} // Max height 800px, then scroll
-          rowCount={rowCount}
-          rowHeight={rowHeight}
-          width={gridWidth}
-          itemData={{
-            items,
-            prompt,
-            onDownload,
-            onPreview,
-            onRetry,
-            getDisplayUrl,
-            hasDownloadableImage,
-            columnCount,
-          }}
-          overscanCount={2} // Render 2 extra rows/columns for smoother scrolling
-        >
-          {Cell}
-        </Grid>
+      {/* Images Grid Container - Standard CSS Grid */}
+      <div className="w-full">
+        {items.length > 0 ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="grid gap-4"
+            style={{
+              gridTemplateColumns: columnCount === 1 ? 'repeat(1, 1fr)' :
+                                   columnCount === 2 ? 'repeat(2, 1fr)' :
+                                   'repeat(3, 1fr)',
+            }}
+          >
+            <AnimatePresence mode="popLayout">
+              {items.map((item, index) => (
+                <motion.div
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {item.status === 'pending' || item.status === 'loading' ? (
+                    <LoadingCard id={item.id} />
+                  ) : item.status === 'error' ? (
+                    <ErrorCard
+                      id={item.id}
+                      error={item.error}
+                      onRetry={() => onRetry(item.id)}
+                    />
+                  ) : item.status === 'success' && item.result ? (
+                    <SuccessCard
+                      id={item.id}
+                      result={item.result}
+                      prompt={prompt}
+                      imageUrl={getDisplayUrl(item.result) || ''}
+                      canDownload={hasDownloadableImage(item.result)}
+                      onPreview={() => onPreview(item.result, index)}
+                      onDownload={() => onDownload(getDisplayUrl(item.result) || '')}
+                    />
+                  ) : null}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        ) : (
+          // Empty state placeholder
+          <div className="flex items-center justify-center py-12">
+            <p className="text-gray-400">No images to display</p>
+          </div>
+        )}
       </div>
 
       {/* Custom CSS for skeleton shimmer animation */}

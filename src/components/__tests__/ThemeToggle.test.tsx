@@ -50,8 +50,6 @@ describe('ThemeToggle', () => {
 
     // Get initial state
     const initialTheme = localStorage.getItem('theme');
-    const initialHasDark = document.documentElement.classList.contains('dark-theme');
-    const initialHasLight = document.documentElement.classList.contains('light-theme');
 
     // Click to toggle
     fireEvent.click(button);

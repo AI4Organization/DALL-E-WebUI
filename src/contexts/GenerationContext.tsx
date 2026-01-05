@@ -121,6 +121,7 @@ export function GenerationProvider({
  *
  * Throws an error if used outside of GenerationProvider.
  */
+/* eslint-disable react-refresh/only-export-components */
 export function useGenerationContext(): GenerationContextValue {
   const context = useContext(GenerationContext);
   if (context === undefined) {

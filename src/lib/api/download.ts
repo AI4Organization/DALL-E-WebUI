@@ -68,7 +68,7 @@ export interface DownloadResult {
 export async function downloadImage(
   params: DownloadParams
 ): Promise<DownloadResult> {
-  const { imageUrl, format, filename, signal } = params;
+  const { imageUrl, format, signal } = params;
 
   // Check cache first
   const cachedResult = downloadCache.get(imageUrl, format);

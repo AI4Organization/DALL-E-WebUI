@@ -3,7 +3,6 @@ import { devtools } from 'zustand/middleware';
 
 import type {
   ImageGenerationItem,
-  ImageGenerationStatus,
   OpenAIImageResult,
   ImageQuality,
   GPTImageQuality,

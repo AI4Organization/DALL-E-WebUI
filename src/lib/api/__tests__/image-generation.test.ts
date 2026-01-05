@@ -3,7 +3,6 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { z } from 'zod';
 
 import { apiClient } from '../../api-client';
 import { generateImages, getImageDisplayUrl, hasDownloadableImage, isAbortError } from '../image-generation';

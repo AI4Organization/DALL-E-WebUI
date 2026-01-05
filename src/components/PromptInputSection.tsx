@@ -32,7 +32,7 @@ export const PromptInputSection = memo<PromptInputSectionProps>(({
   prompt,
   onPromptChange,
   maxLength,
-  model,
+  model: _model,
 }) => {
   const { ref, height } = useAutoResizeTextArea(prompt);
 

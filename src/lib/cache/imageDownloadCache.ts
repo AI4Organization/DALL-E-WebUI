@@ -28,16 +28,6 @@ interface CacheEntry {
 }
 
 /**
- * Cache key structure
- */
-interface CacheKey {
-  /** Original image URL or Blob URL */
-  imageUrl: string;
-  /** Target format */
-  format: ImageOutputFormat;
-}
-
-/**
  * Image Download Cache class
  *
  * Implements LRU cache with TTL for converted image downloads.
@@ -195,7 +185,7 @@ export class ImageDownloadCache {
    * Revokes any Blob URLs before clearing
    */
   clear(): void {
-    for (const [key, entry] of this.cache.entries()) {
+    for (const [_key, entry] of this.cache.entries()) {
       if (entry.dataUrl.startsWith('blob:')) {
         URL.revokeObjectURL(entry.dataUrl);
       }

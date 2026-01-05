@@ -152,6 +152,7 @@ export function ErrorBoundaryFallback(): React.ReactElement {
  * const SafeComponent = withErrorBoundary(MyComponent);
  * ```
  */
+/* eslint-disable react-refresh/only-export-components */
 export function withErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,
   errorBoundaryProps?: Omit<ErrorBoundaryProps, 'children'>
