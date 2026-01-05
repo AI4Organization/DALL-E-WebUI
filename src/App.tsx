@@ -629,57 +629,6 @@ export default function App(): React.ReactElement {
     [generationItems, openPreviewContext]
   );
 
-  // TEMPORARILY DISABLED: Global keyboard/mouse listeners to debug infinite loop issue
-  // // Ref to store latest handlers for event listeners
-  // const handlersRef = useRef({
-  //   handleKeyDown: null as ((e: KeyboardEvent) => void) | null,
-  //   handleMouseUp: null as (() => void) | null,
-  // });
-
-  // // Update keyboard shortcuts - regular function (not useCallback) to avoid dependency issues
-  // const handleKeyDown = (e: KeyboardEvent): void => {
-  //   if (!previewImage) return;
-  //   if (e.key === 'Escape') closePreview();
-  //   if (e.key === 'ArrowLeft') handlePreviousImage();
-  //   if (e.key === 'ArrowRight') handleNextImage();
-  //   if (e.key === '+' || e.key === '=') handleZoomIn();
-  //   if (e.key === '-' || e.key === '_') handleZoomOut();
-  //   if (e.key === '0') handleZoomReset();
-  //   if (e.key === 'f') {
-  //     const modes: Array<'contain' | 'actual' | 'fill'> = ['contain', 'actual', 'fill'];
-  //     const currentIdx = fitMode !== undefined ? modes.indexOf(fitMode) : 0;
-  //     if (currentIdx >= 0) {
-  //       const nextMode = modes[(currentIdx + 1) % modes.length]!;
-  //       if (nextMode) {
-  //         handleFitModeChange(nextMode);
-  //       }
-  //     }
-  //   }
-  //   if (e.key === 'F11') {
-  //     e.preventDefault();
-  //     handleFullscreenToggle();
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   const keyHandler = (e: Event) => {
-  //     if (e instanceof KeyboardEvent && handlersRef.current.handleKeyDown) {
-  //       handlersRef.current.handleKeyDown(e);
-  //     }
-  //   };
-  //   const mouseUpHandler = () => {
-  //     if (handlersRef.current.handleMouseUp) {
-  //       handlersRef.current.handleMouseUp();
-  //     }
-  //   };
-  //   window.addEventListener('keydown', keyHandler);
-  //   window.addEventListener('mouseup', mouseUpHandler);
-  //   return () => {
-  //     window.removeEventListener('keydown', keyHandler);
-  //     window.removeEventListener('mouseup', mouseUpHandler);
-  //   };
-  // }, []);
-
   // ============ Render ============
   return (
     <>
