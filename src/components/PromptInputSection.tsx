@@ -42,9 +42,9 @@ export const PromptInputSection = memo<PromptInputSectionProps>(({
       whileFocus={{ scale: 1.01 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
     >
-      <label className="block text-sm font-medium text-gray-300 mb-2 items-center gap-2">
+      <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
         <PictureOutlined className="text-accent-purple" />
-        Your Prompt
+        <span>Your Prompt</span>
       </label>
       <AntTextArea
         ref={ref}
