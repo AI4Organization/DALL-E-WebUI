@@ -85,17 +85,86 @@ function isOpenRouterModel(model: string): boolean {
 }
 
 /**
+ * Maps a size string (e.g., "1024x1024") to an OpenRouter aspect ratio.
+ * OpenRouter uses aspect_ratio in image_config instead of width/height.
+ *
+ * Supported aspect ratios by OpenRouter:
+ * - 1:1 → 1024×1024 (default)
+ * - 2:3 → 832×1248
+ * - 3:2 → 1248×832
+ * - 3:4 → 864×1184
+ * - 4:3 → 1184×864
+ * - 4:5 → 896×1152
+ * - 5:4 → 1152×896
+ * - 9:16 → 768×1344
+ * - 16:9 → 1344×768
+ * - 21:9 → 1536×672
+ */
+function mapSizeToAspectRatio(size: string): string {
+  if (size === 'auto') {
+    return '1:1'; // Default to square
+  }
+
+  const parts = size.split('x');
+  const widthStr = parts[0];
+  const heightStr = parts[1];
+
+  if (!widthStr || !heightStr) {
+    return '1:1'; // Fallback to square
+  }
+
+  const width = parseInt(widthStr, 10);
+  const height = parseInt(heightStr, 10);
+
+  if (isNaN(width) || isNaN(height)) {
+    return '1:1'; // Fallback to square
+  }
+
+  // Calculate the greatest common divisor to simplify the ratio
+  const gcd = (a: number, b: number): number => {
+    return b === 0 ? a : gcd(b, a % b);
+  };
+
+  const divisor = gcd(width, height);
+  const simplifiedWidth = width / divisor;
+  const simplifiedHeight = height / divisor;
+
+  return `${simplifiedWidth}:${simplifiedHeight}`;
+}
+
+/**
  * Generates images using OpenRouter's chat completions API.
  * OpenRouter uses multimodal chat with modalities: ['image', 'text'] for image generation.
  *
  * Note: Using axios directly since the OpenRouter SDK may not fully support the modalities parameter.
+ *
+ * OpenRouter requires image_config with aspect_ratio (not direct width/height).
+ * Example: { image_config: { aspect_ratio: "16:9", image_size: "2K" } }
  */
 async function generateImagesWithOpenRouter(
   prompt: string,
   model: string,
-  n: number
+  n: number,
+  size: string,
+  quality?: string
 ): Promise<OpenAIImageResult[]> {
-  const requestBody = {
+  // Map size to aspect ratio for OpenRouter
+  const aspectRatio = mapSizeToAspectRatio(size);
+
+  // Build image_config object
+  const imageConfig: Record<string, unknown> = {
+    aspect_ratio: aspectRatio,
+  };
+
+  // Add image_size based on quality
+  // High quality uses 2K, standard quality uses 1K
+  if (quality === 'high') {
+    imageConfig.image_size = '2K';
+  } else if (quality === 'standard') {
+    imageConfig.image_size = '1K';
+  }
+
+  const requestBody: Record<string, unknown> = {
     model,
     messages: [
       {
@@ -105,11 +174,16 @@ async function generateImagesWithOpenRouter(
     ],
     modalities: ['image', 'text'],
     stream: false,
+    image_config: imageConfig,
   };
 
   // Log request
   writeDebugLog('OpenRouter REQUEST', {
     url: `${OPENROUTER_BASE_URL}/chat/completions`,
+    originalSize: size,
+    mappedAspectRatio: aspectRatio,
+    quality,
+    imageConfig,
     body: requestBody,
   });
 
@@ -381,7 +455,9 @@ router.post(
         resultData = await generateImagesWithOpenRouter(
           prompt as string,
           selectedModel as string,
-          Number(n)
+          Number(n),
+          size as string,
+          quality as string | undefined
         );
       } else {
         // Use OpenAI SDK for DALL-E models
