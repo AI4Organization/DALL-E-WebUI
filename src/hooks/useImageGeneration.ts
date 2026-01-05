@@ -20,14 +20,14 @@ import { base64ToBlobUrl, revokeBlobUrls, extractBlobUrlsFromItems } from '../li
 
 // Helper functions
 const getPromptLimit = (modelName: string | null): number => {
-  if (modelName === 'gpt-image-1.5') return 32000;
+  if (modelName === 'gpt-image-1.5-2025-12-16') return 32000;
   if (modelName === 'dall-e-3') return 4000;
   if (modelName === 'dall-e-2') return 1000;
   return 4000;
 };
 
 const getMaxImages = (modelName: string | null): number => {
-  if (modelName === 'gpt-image-1.5') return 10;
+  if (modelName === 'gpt-image-1.5-2025-12-16') return 10;
   if (modelName === 'dall-e-3') return 10;
   if (modelName === 'dall-e-2') return 10;
   return 10;
@@ -223,7 +223,7 @@ export function useImageGeneration(
       hasErrors = true;
     }
 
-    if (model === 'gpt-image-1.5' && !GPT_IMAGE_1_5_SIZES.includes(size)) {
+    if (model === 'gpt-image-1.5-2025-12-16' && !GPT_IMAGE_1_5_SIZES.includes(size)) {
       toast.error('Invalid Size for GPT Image 1.5', {
         description: `Choose: auto, 1024x1024, 1536x1024, or 1024x1536.`,
       });
@@ -239,7 +239,7 @@ export function useImageGeneration(
       });
     }
 
-    if (model === 'gpt-image-1.5' && number > 1) {
+    if (model === 'gpt-image-1.5-2025-12-16' && number > 1) {
       toast.info(`Multiple Images with GPT Image 1.5`, {
         description: `Generating all ${number} images in a single request.`,
       });
@@ -319,7 +319,7 @@ export function useImageGeneration(
 
     try {
       // GPT Image 1.5: Single request for multiple images
-      if (model === 'gpt-image-1.5' && number > 1) {
+      if (model === 'gpt-image-1.5-2025-12-16' && number > 1) {
         const { images } = await apiGenerateImages({
           prompt,
           model,
