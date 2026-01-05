@@ -20,7 +20,7 @@ import type {
   ModelOption,
   OpenAIImageResult,
 } from '../types';
-import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../types';
+import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES, SEEDREAM_4_5_SIZES } from '../types';
 
 import { EmptyState } from './components/EmptyState';
 import { ImageResultsGrid } from './components/ImageResultsGrid';
@@ -44,6 +44,9 @@ declare const process: { env: { API_BASE_URL: string } };
 // ============ Constants ============
 
 const isSizeValidForModel = (size: ImageSize, modelName: string | null): boolean => {
+  if (modelName === 'bytedance-seed/seedream-4.5') {
+    return SEEDREAM_4_5_SIZES.includes(size);
+  }
   if (modelName === 'gpt-image-1.5') {
     return GPT_IMAGE_1_5_SIZES.includes(size);
   }
@@ -54,6 +57,9 @@ const isSizeValidForModel = (size: ImageSize, modelName: string | null): boolean
 };
 
 const getDefaultSizeForModel = (modelName: string | null): ImageSize => {
+  if (modelName === 'bytedance-seed/seedream-4.5') {
+    return SEEDREAM_4_5_SIZES[0]!; // '1024x1024' (Square)
+  }
   if (modelName === 'gpt-image-1.5') {
     return GPT_IMAGE_1_5_SIZES[2]!; // '1536x1024' (Landscape)
   }
@@ -66,6 +72,7 @@ const getDefaultSizeForModel = (modelName: string | null): ImageSize => {
 
 // Helper function to get prompt limit for model
 const getPromptLimit = (modelName: string | null): number => {
+  if (modelName === 'bytedance-seed/seedream-4.5') return 4096;
   if (modelName === 'gpt-image-1.5') return 32000;
   if (modelName === 'dall-e-3') return 4000;
   if (modelName === 'dall-e-2') return 1000;
@@ -76,6 +83,7 @@ const getPromptLimit = (modelName: string | null): number => {
 // Note: For DALL-E 3, we allow up to 10 images but handle via parallel requests
 // since the API only supports n=1 per request
 const getMaxImages = (modelName: string | null): number => {
+  if (modelName === 'bytedance-seed/seedream-4.5') return 6;
   if (modelName === 'gpt-image-1.5') return 10;
   if (modelName === 'dall-e-3') return 10; // Allow up to 10 via parallel requests
   if (modelName === 'dall-e-2') return 10;
@@ -229,7 +237,9 @@ export default function App(): React.ReactElement {
   }, [model, size, setSize]);
 
   useEffect(() => {
-    if (model === 'gpt-image-1.5') {
+    if (model === 'bytedance-seed/seedream-4.5') {
+      setQuality('standard');
+    } else if (model === 'gpt-image-1.5') {
       setQuality('low');
     } else if (model === 'dall-e-2') {
       setQuality('standard');
@@ -243,11 +253,12 @@ export default function App(): React.ReactElement {
       try {
         const res = await axios.get(`${process.env.API_BASE_URL}/api/config`);
 
-        // Sort models by priority: dall-e-3, gpt-image-1.5, dall-e-2, then others alphabetically
+        // Sort models by priority: dall-e-3, gpt-image-1.5, dall-e-2, bytedance-seed/seedream-4.5, then others alphabetically
         const modelPriority: Record<string, number> = {
           'dall-e-3': 1,
           'gpt-image-1.5': 2,
           'dall-e-2': 3,
+          'bytedance-seed/seedream-4.5': 4,
         };
 
         const sortedModels = [...res.data.availableModels].sort((a, b) => {
@@ -298,13 +309,16 @@ export default function App(): React.ReactElement {
   }, []);
 
   // Set default model after availableModels is populated
+  // The first model returned by the API is the default
+  // Also reset the model if the current one is not in the available models list
   useEffect(() => {
-    if (!configLoading && availableModels.length > 0 && !model) {
-      const defaultModel =
-        availableModels.find((m: ModelOption) => m.value === 'dall-e-3')?.value ??
-        availableModels[0]?.value ??
-        null;
-      setModel(defaultModel);
+    if (!configLoading && availableModels.length > 0) {
+      const isFirstModel = !model;
+      const isModelNotAvailable = model && !availableModels.some((m: ModelOption) => m.value === model);
+
+      if (isFirstModel || isModelNotAvailable) {
+        setModel(availableModels[0]?.value ?? null);
+      }
     }
   }, [configLoading, availableModels, model, setModel]);
 
@@ -375,6 +389,13 @@ export default function App(): React.ReactElement {
       hasErrors = true;
     }
 
+    if (model === 'bytedance-seed/seedream-4.5' && !SEEDREAM_4_5_SIZES.includes(size)) {
+      toast.error('Invalid Size for Seedream 4.5', {
+        description: `The size "${size}" is not supported by Seedream 4.5. Choose a supported size: 1024x1024, 1536x1536, 2048x2048, 1024x1536, 1536x1024, 1024x2048, or 2048x1024.`,
+      });
+      hasErrors = true;
+    }
+
     // If there are errors, show them and stop
     if (hasErrors) {
       return;
@@ -390,6 +411,12 @@ export default function App(): React.ReactElement {
     if (model === 'gpt-image-1.5' && number > 1) {
       toast.info(`Multiple Images with GPT Image 1.5`, {
         description: `You requested ${number} images. We'll generate them in a single request and show all results together. GPT Image 1.5 supports multiple images in one request for faster generation.`,
+      });
+    }
+
+    if (model === 'bytedance-seed/seedream-4.5' && number > 1) {
+      toast.info(`Multiple Images with Seedream 4.5`, {
+        description: `You requested ${number} images. Seedream 4.5 supports up to 6 images per request. Generation may take 30-60 seconds per image.`,
       });
     }
 

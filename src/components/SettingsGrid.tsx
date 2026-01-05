@@ -18,8 +18,9 @@ import type {
   ImageOutputFormat,
   GPTImageQuality,
   GPTImageBackground,
+  SeedreamQuality,
 } from '../../types';
-import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../../types';
+import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES, SEEDREAM_4_5_SIZES } from '../../types';
 import { useTheme } from '../lib/theme';
 
 // ============ Constants ============
@@ -36,6 +37,11 @@ const DALL_E_2_QUALITY_OPTIONS: { value: ImageQuality; label: string }[] = [
 const GPT_IMAGE_1_5_QUALITY_OPTIONS: { value: GPTImageQuality; label: string }[] = [
   { value: 'low', label: 'Low' },
   { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+];
+
+const SEEDREAM_4_5_QUALITY_OPTIONS: { value: SeedreamQuality; label: string }[] = [
+  { value: 'standard', label: 'Standard' },
   { value: 'high', label: 'High' },
 ];
 
@@ -121,7 +127,10 @@ function SelectControlItem({ label, tooltip, disabled, disabledReason, children 
 
 // ============ Helper Functions ============
 
-const getQualityOptions = (modelName: string | null): { value: ImageQuality | GPTImageQuality; label: string }[] => {
+const getQualityOptions = (modelName: string | null): { value: ImageQuality | GPTImageQuality | SeedreamQuality; label: string }[] => {
+  if (modelName === 'bytedance-seed/seedream-4.5') {
+    return SEEDREAM_4_5_QUALITY_OPTIONS;
+  }
   if (modelName === 'gpt-image-1.5') {
     return GPT_IMAGE_1_5_QUALITY_OPTIONS;
   }
@@ -132,6 +141,19 @@ const getQualityOptions = (modelName: string | null): { value: ImageQuality | GP
 };
 
 const getSizeOptions = (modelName: string | null): { value: ImageSize; label: string }[] => {
+  if (modelName === 'bytedance-seed/seedream-4.5') {
+    return SEEDREAM_4_5_SIZES.map((size) => ({
+      value: size,
+      label: size === '1024x1024' ? '1024 x 1024 (Square)' :
+             size === '1536x1536' ? '1536 x 1536 (Square HD)' :
+             size === '2048x2048' ? '2048 x 2048 (4K Square)' :
+             size === '1024x1536' ? '1024 x 1536 (Portrait)' :
+             size === '1536x1024' ? '1536 x 1024 (Landscape)' :
+             size === '1024x2048' ? '1024 x 2048 (Portrait 4K)' :
+             size === '2048x1024' ? '2048 x 1024 (Landscape 4K)' :
+             size.replace('x', ' x '),
+    }));
+  }
   if (modelName === 'gpt-image-1.5') {
     return GPT_IMAGE_1_5_SIZES.map((size) => ({
       value: size,
@@ -161,6 +183,7 @@ const getSizeOptions = (modelName: string | null): { value: ImageSize; label: st
 };
 
 const getMaxImages = (modelName: string | null): number => {
+  if (modelName === 'bytedance-seed/seedream-4.5') return 6;
   if (modelName === 'gpt-image-1.5') return 10;
   if (modelName === 'dall-e-3') return 10;
   if (modelName === 'dall-e-2') return 10;
@@ -168,7 +191,7 @@ const getMaxImages = (modelName: string | null): number => {
 };
 
 const shouldShowQuality = (model: string | null): boolean => {
-  return model === 'dall-e-2' || model === 'dall-e-3' || model === 'gpt-image-1.5';
+  return model === 'dall-e-2' || model === 'dall-e-3' || model === 'gpt-image-1.5' || model === 'bytedance-seed/seedream-4.5';
 };
 
 const shouldShowStyle = (model: string | null): boolean => {

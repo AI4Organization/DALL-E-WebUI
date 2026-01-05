@@ -27,6 +27,9 @@ export type ImageQuality = 'standard' | 'hd';
 // GPT Image 1.5 quality options
 export type GPTImageQuality = 'auto' | 'high' | 'medium' | 'low';
 
+// Seedream 4.5 quality options
+export type SeedreamQuality = 'standard' | 'high';
+
 // GPT Image 1.5 output format options (API-supported)
 export type GPTImageOutputFormat = 'png' | 'jpeg' | 'webp';
 
@@ -50,8 +53,9 @@ export interface ImageGenerationItem {
 // DALL-E 2 sizes: 256x256, 512x512, 1024x1024
 // DALL-E 3 sizes: 1024x1024, 1024x1792, 1792x1024
 // GPT Image 1.5 sizes: auto, 1024x1024, 1536x1024, 1024x1536
+// Seedream 4.5 sizes: 1024x1024, 1536x1536, 2048x2048, 1024x1536, 1536x1024, 1024x2048, 2048x1024
 export type ImageSize =
-  // Common size
+  // Common square size (all models)
   | '1024x1024'
   // DALL-E 2 sizes
   | '256x256'
@@ -62,7 +66,12 @@ export type ImageSize =
   // GPT Image 1.5 specific sizes
   | 'auto'
   | '1536x1024'
-  | '1024x1536';
+  | '1024x1536'
+  // Seedream 4.5 specific sizes
+  | '1536x1536'
+  | '2048x2048'
+  | '1024x2048'
+  | '2048x1024';
 
 export type ImageStyle = 'vivid' | 'natural';
 
@@ -73,6 +82,15 @@ export type FitMode = 'contain' | 'actual' | 'fill';
 export const DALL_E_2_SIZES: readonly ImageSize[] = ['256x256', '512x512', '1024x1024'] as const;
 export const DALL_E_3_SIZES: readonly ImageSize[] = ['1024x1024', '1024x1792', '1792x1024'] as const;
 export const GPT_IMAGE_1_5_SIZES: readonly ImageSize[] = ['auto', '1024x1024', '1536x1024', '1024x1536'] as const;
+export const SEEDREAM_4_5_SIZES: readonly ImageSize[] = [
+  '1024x1024',
+  '1536x1536',
+  '2048x2048',
+  '1024x1536',
+  '1536x1024',
+  '1024x2048',
+  '2048x1024',
+] as const;
 
 export interface ModelOption {
   value: string;

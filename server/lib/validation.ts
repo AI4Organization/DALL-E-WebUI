@@ -1,12 +1,12 @@
 import { type ValidationResult, type ImageStyle } from '../../types';
 
 // ============ Type Definitions ============
-type ValidModel = 'dall-e-3' | 'dall-e-2' | 'gpt-image-1.5' | 'z-ai/glm-4.6v' | 'x-ai/grok-4.1-fast';
+type ValidModel = 'dall-e-3' | 'dall-e-2' | 'gpt-image-1.5' | 'bytedance-seed/seedream-4.5' | 'z-ai/glm-4.6v' | 'x-ai/grok-4.1-fast';
 
 // ============ Constants ============
 const BASE_URL_MODELS: Record<string, ValidModel[]> = {
   'https://api.openai.com/v1': ['dall-e-3', 'dall-e-2', 'gpt-image-1.5'],
-  'https://openrouter.ai/api/v1': ['z-ai/glm-4.6v', 'x-ai/grok-4.1-fast'],
+  'https://openrouter.ai/api/v1': ['bytedance-seed/seedream-4.5', 'z-ai/glm-4.6v', 'x-ai/grok-4.1-fast'],
 };
 
 const VALID_STYLES: ImageStyle[] = ['vivid', 'natural'];
@@ -22,6 +22,10 @@ const GPT_IMAGE_1_5_QUALITIES = ['auto', 'high', 'medium', 'low'] as const;
 const GPT_IMAGE_1_5_OUTPUT_FORMATS = ['png', 'jpeg', 'webp'] as const;
 const GPT_IMAGE_1_5_BACKGROUNDS = ['auto', 'transparent', 'opaque'] as const;
 const GPT_IMAGE_1_5_SIZES = ['auto', '1024x1024', '1536x1024', '1024x1536'] as const;
+
+// Seedream 4.5 specific validation constants
+const SEEDREAM_4_5_QUALITIES = ['standard', 'high'] as const;
+const SEEDREAM_4_5_SIZES = ['1024x1024', '1536x1536', '2048x2048', '1024x1536', '1536x1024', '1024x2048', '2048x1024'] as const;
 
 // ============ Type-Safe Functions ============
 export function validateEnvVars(): ValidationResult {
@@ -141,11 +145,50 @@ export function validateGPTImage15Params(params: GPTImage15Params): ValidationRe
   return { valid: errors.length === 0, errors };
 }
 
+// ============ Seedream 4.5 Validation ============
+
+/**
+ * Validates Seedream 4.5 specific parameters.
+ */
+export interface Seedream45Params {
+  quality?: string;
+  n?: number;
+  size?: string;
+}
+
+export function validateSeedream45Params(params: Seedream45Params): ValidationResult {
+  const errors: string[] = [];
+
+  // Validate quality (optional, defaults to standard)
+  if (params.quality !== undefined) {
+    if (!SEEDREAM_4_5_QUALITIES.includes(params.quality as typeof SEEDREAM_4_5_QUALITIES[number])) {
+      errors.push(`Quality '${params.quality}' is not valid for Seedream 4.5. Valid options: ${SEEDREAM_4_5_QUALITIES.join(', ')}`);
+    }
+  }
+
+  // Validate n (number of images) - Seedream 4.5 supports 1-6
+  if (params.n !== undefined) {
+    if (params.n < 1 || params.n > 6) {
+      errors.push(`Number of images must be between 1 and 6 for Seedream 4.5. Received: ${params.n}`);
+    }
+  }
+
+  // Validate size (optional, defaults to 1024x1024)
+  if (params.size !== undefined) {
+    if (!SEEDREAM_4_5_SIZES.includes(params.size as typeof SEEDREAM_4_5_SIZES[number])) {
+      errors.push(`Size '${params.size}' is not valid for Seedream 4.5. Valid options: ${SEEDREAM_4_5_SIZES.join(', ')}`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
 /**
  * Gets the maximum prompt length for a given model.
  */
 export function getPromptLimitForModel(model: string): number {
   if (model === 'gpt-image-1.5') return 32000;
+  if (model === 'bytedance-seed/seedream-4.5') return 4096; // Seedream 4.5 supports long prompts
   if (model === 'dall-e-3') return 4000;
   if (model === 'dall-e-2') return 1000;
   return 4000; // Default for other models
@@ -156,6 +199,7 @@ export function getPromptLimitForModel(model: string): number {
  */
 export function getMaxImagesForModel(model: string): number {
   if (model === 'gpt-image-1.5') return 10;
+  if (model === 'bytedance-seed/seedream-4.5') return 6; // Seedream 4.5 max is 6
   if (model === 'dall-e-3') return 1;
   if (model === 'dall-e-2') return 10;
   return 1; // Default conservative limit
@@ -166,6 +210,7 @@ export function getMaxImagesForModel(model: string): number {
  */
 export function getValidSizesForModel(model: string): readonly string[] {
   if (model === 'gpt-image-1.5') return GPT_IMAGE_1_5_SIZES;
+  if (model === 'bytedance-seed/seedream-4.5') return SEEDREAM_4_5_SIZES;
   if (model === 'dall-e-2') return DALL_E_2_SIZES;
   // Default to DALL-E 3 sizes for dall-e-3 and others
   if (model === 'dall-e-3') return DALL_E_3_SIZES;
@@ -176,12 +221,14 @@ export function getValidSizesForModel(model: string): readonly string[] {
  * Gets the default size for a given model.
  * For DALL-E 3 and GPT Image 1.5, returns landscape orientation.
  * For DALL-E 2, returns the largest square size.
+ * For Seedream 4.5, returns 1024x1024 (default square).
  */
 export function getDefaultSizeForModel(model: string): string {
   if (model === 'gpt-image-1.5') return GPT_IMAGE_1_5_SIZES[2]; // '1536x1024' (Landscape)
+  if (model === 'bytedance-seed/seedream-4.5') return SEEDREAM_4_5_SIZES[0]; // '1024x1024' (Square)
   if (model === 'dall-e-2') return DALL_E_2_SIZES[2]; // '1024x1024' (Largest square)
   if (model === 'dall-e-3') return DALL_E_3_SIZES[2]; // Landscape for DALL-E 3
-  // Return defaul sizes for the other models
+  // Return default sizes for the other models
   return '1024x1024';
 }
 

@@ -1,25 +1,31 @@
 import pLimit from 'p-limit';
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import type {
+  GPTImageBackground,
+  GPTImageQuality,
   ImageGenerationItem,
   ImageGenerationStatus,
-  OpenAIImageResult,
+  ImageOutputFormat,
   ImageQuality,
-  GPTImageQuality,
   ImageSize,
   ImageStyle,
-  ImageOutputFormat,
-  GPTImageBackground,
+  OpenAIImageResult,
 } from '../../types';
-import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../../types';
-import { generateImages as apiGenerateImages, isAbortError } from '../lib/api/image-generation';
+import {
+  DALL_E_2_SIZES,
+  DALL_E_3_SIZES,
+  GPT_IMAGE_1_5_SIZES,
+  SEEDREAM_4_5_SIZES,
+} from '../../types';
 import { ApiError } from '../lib/api-client';
-import { base64ToBlobUrl, revokeBlobUrls, extractBlobUrlsFromItems } from '../lib/utils/blobUrl';
+import { generateImages as apiGenerateImages, isAbortError } from '../lib/api/image-generation';
+import { base64ToBlobUrl, extractBlobUrlsFromItems, revokeBlobUrls } from '../lib/utils/blobUrl';
 
 // Helper functions
 const getPromptLimit = (modelName: string | null): number => {
+  if (modelName === 'bytedance-seed/seedream-4.5') return 4096;
   if (modelName === 'gpt-image-1.5') return 32000;
   if (modelName === 'dall-e-3') return 4000;
   if (modelName === 'dall-e-2') return 1000;
@@ -27,6 +33,7 @@ const getPromptLimit = (modelName: string | null): number => {
 };
 
 const getMaxImages = (modelName: string | null): number => {
+  if (modelName === 'bytedance-seed/seedream-4.5') return 6;
   if (modelName === 'gpt-image-1.5') return 10;
   if (modelName === 'dall-e-3') return 10;
   if (modelName === 'dall-e-2') return 10;
@@ -141,7 +148,7 @@ export function useImageGeneration(
     }
 
     // Revoke all Blob URLs before clearing items
-    setItems(prevItems => {
+    setItems((prevItems) => {
       const blobUrls = extractBlobUrlsFromItems(prevItems);
       revokeBlobUrls(blobUrls);
       return [];
@@ -151,7 +158,7 @@ export function useImageGeneration(
   // Cleanup effect: Revoke all Blob URLs on unmount
   useEffect(() => {
     return () => {
-      setItems(prevItems => {
+      setItems((prevItems) => {
         const blobUrls = extractBlobUrlsFromItems(prevItems);
         revokeBlobUrls(blobUrls);
         return [];
@@ -173,19 +180,22 @@ export function useImageGeneration(
     // Client-side validation
     if (!model) {
       toast.error('No Model Selected', {
-        description: 'Please select an AI model to generate images. Choose a model from the "Model" dropdown above.',
+        description:
+          'Please select an AI model to generate images. Choose a model from the "Model" dropdown above.',
       });
       hasErrors = true;
     }
 
     if (!prompt.trim()) {
       toast.error('Empty Prompt', {
-        description: 'Please describe the image you want to create. Enter a detailed description in the "Your Prompt" text area.',
+        description:
+          'Please describe the image you want to create. Enter a detailed description in the "Your Prompt" text area.',
       });
       hasErrors = true;
     } else if (prompt.trim().length < 10) {
       toast.warning('Prompt Too Short', {
-        description: 'Your prompt is quite short. More detailed prompts usually produce better results.',
+        description:
+          'Your prompt is quite short. More detailed prompts usually produce better results.',
       });
     }
 
@@ -230,6 +240,13 @@ export function useImageGeneration(
       hasErrors = true;
     }
 
+    if (model === 'bytedance-seed/seedream-4.5' && !SEEDREAM_4_5_SIZES.includes(size)) {
+      toast.error('Invalid Size for Seedream 4.5', {
+        description: `Choose: 1024x1024, 1536x1536, 2048x2048, 1024x1536, 1536x1024, 1024x2048, or 2048x1024.`,
+      });
+      hasErrors = true;
+    }
+
     if (hasErrors) return;
 
     // Info messages
@@ -245,9 +262,15 @@ export function useImageGeneration(
       });
     }
 
+    if (model === 'bytedance-seed/seedream-4.5' && number > 1) {
+      toast.info(`Multiple Images with Seedream 4.5`, {
+        description: `Generating all ${number} images in a single request. Generation may take 30-60 seconds per image.`,
+      });
+    }
+
     // Initialize generation items (preserving existing items with unique IDs)
     setIsGenerating(true);
-    const nextId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 0;
+    const nextId = items.length > 0 ? Math.max(...items.map((i) => i.id)) + 1 : 0;
     const newItems: ImageGenerationItem[] = Array.from({ length: number }, (_, i) => ({
       id: nextId + i,
       status: 'pending' as ImageGenerationStatus,
@@ -258,8 +281,8 @@ export function useImageGeneration(
 
     // Helper to update item
     const updateItem = (id: number, updates: Partial<ImageGenerationItem>) => {
-      setItems(prev => {
-        const updated = prev.map(item => (item.id === id ? { ...item, ...updates } : item));
+      setItems((prev) => {
+        const updated = prev.map((item) => (item.id === id ? { ...item, ...updates } : item));
         return pruneOldImages(updated);
       });
     };
@@ -332,10 +355,10 @@ export function useImageGeneration(
         });
 
         // Update existing pending items with results (they were already added to state)
-        setItems(prev => {
-          const firstNewId = prev.length > 0 ? Math.max(...prev.map(i => i.id)) - number + 1 : 0;
+        setItems((prev) => {
+          const firstNewId = prev.length > 0 ? Math.max(...prev.map((i) => i.id)) - number + 1 : 0;
 
-          const updated = prev.map(item => {
+          const updated = prev.map((item) => {
             // Update pending items with their corresponding results
             const index = item.id - firstNewId;
             if (index >= 0 && index < images.length) {
@@ -353,9 +376,7 @@ export function useImageGeneration(
         toast.success(`${images.length} image${images.length !== 1 ? 's' : ''} generated!`);
       } else {
         // DALL-E 3/2: Parallel requests
-        const tasks = Array.from({ length: number }, (_, i) =>
-          limit(() => generateSingleImage(i))
-        );
+        const tasks = Array.from({ length: number }, (_, i) => limit(() => generateSingleImage(i)));
 
         await Promise.all(tasks);
       }
@@ -385,64 +406,75 @@ export function useImageGeneration(
     }
   }, [model, prompt, number, size, items, quality, style, outputFormat, background]);
 
-  const retryImage = useCallback(async (id: number): Promise<void> => {
-    setItems(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, status: 'loading' as ImageGenerationStatus, error: undefined } : item
-      )
-    );
+  const retryImage = useCallback(
+    async (id: number): Promise<void> => {
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, status: 'loading' as ImageGenerationStatus, error: undefined }
+            : item
+        )
+      );
 
-    try {
-      const { images } = await apiGenerateImages({
-        prompt,
-        model: model!,
-        n: 1,
-        quality,
-        size,
-        style,
-        response_format: outputFormat,
-        background,
-      });
+      try {
+        const { images } = await apiGenerateImages({
+          prompt,
+          model: model!,
+          n: 1,
+          quality,
+          size,
+          style,
+          response_format: outputFormat,
+          background,
+        });
 
-      const result = images[0];
-      if (result) {
-        // Convert base64 to Blob URL for memory efficiency
-        const resultWithBlobUrl = convertBase64ToBlobUrl(result);
-        setItems(prev =>
-          prev.map(item =>
-            item.id === id ? { ...item, status: 'success' as ImageGenerationStatus, result: resultWithBlobUrl } : item
-          )
-        );
-        toast.success(`Image ${id + 1} regenerated!`);
-      } else {
-        throw new Error('No image data returned');
+        const result = images[0];
+        if (result) {
+          // Convert base64 to Blob URL for memory efficiency
+          const resultWithBlobUrl = convertBase64ToBlobUrl(result);
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === id
+                ? { ...item, status: 'success' as ImageGenerationStatus, result: resultWithBlobUrl }
+                : item
+            )
+          );
+          toast.success(`Image ${id + 1} regenerated!`);
+        } else {
+          throw new Error('No image data returned');
+        }
+      } catch (err) {
+        // Handle ApiError
+        if (err instanceof ApiError) {
+          const userMessage = err.getUserMessage();
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === id
+                ? { ...item, status: 'error' as ImageGenerationStatus, error: userMessage }
+                : item
+            )
+          );
+          toast.error('Retry failed', {
+            description: userMessage,
+          });
+        } else {
+          // Handle unknown errors
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          setItems((prev) =>
+            prev.map((item) =>
+              item.id === id
+                ? { ...item, status: 'error' as ImageGenerationStatus, error: errorMessage }
+                : item
+            )
+          );
+          toast.error('Retry failed', {
+            description: errorMessage,
+          });
+        }
       }
-    } catch (err) {
-      // Handle ApiError
-      if (err instanceof ApiError) {
-        const userMessage = err.getUserMessage();
-        setItems(prev =>
-          prev.map(item =>
-            item.id === id ? { ...item, status: 'error' as ImageGenerationStatus, error: userMessage } : item
-          )
-        );
-        toast.error('Retry failed', {
-          description: userMessage,
-        });
-      } else {
-        // Handle unknown errors
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setItems(prev =>
-          prev.map(item =>
-            item.id === id ? { ...item, status: 'error' as ImageGenerationStatus, error: errorMessage } : item
-          )
-        );
-        toast.error('Retry failed', {
-          description: errorMessage,
-        });
-      }
-    }
-  }, [prompt, model, quality, size, style, outputFormat, background]);
+    },
+    [prompt, model, quality, size, style, outputFormat, background]
+  );
 
   return {
     generateImages,
