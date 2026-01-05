@@ -8,6 +8,13 @@ export interface OpenAIImageResult {
   url?: string;
   revised_prompt?: string;
   b64_json?: string;
+  /**
+   * Client-side Blob URL created from base64 data.
+   * This property is NOT part of the API response - it's added client-side
+   * for memory-efficient display of base64 images.
+   * Must be revoked with URL.revokeObjectURL() when no longer needed.
+   */
+  blobUrl?: string;
 }
 
 // ============ Image Generation Types ============

@@ -7,15 +7,13 @@ import {
   FullscreenExitOutlined,
   LeftOutlined,
   RightOutlined,
-  LoadingOutlined,
 } from '@ant-design/icons';
 import { Modal, Button, Tooltip, Slider } from 'antd';
 import { motion } from 'framer-motion';
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState, useRef } from 'react';
 
 import type { OpenAIImageResult } from '../../types';
 import type { FitMode } from '../../types';
-import { useImagePreview } from '../hooks/useImagePreview';
 import { useTheme } from '../lib/theme';
 
 export interface PreviewModalProps {
@@ -56,87 +54,142 @@ export const PreviewModal = memo<PreviewModalProps>(({
 }) => {
   const { theme } = useTheme();
 
-  const {
-    previewState,
-    zoomLevel,
-    setZoomLevel,
-    zoomIn,
-    zoomOut,
-    zoomReset,
-    panPosition,
-    fitMode,
-    setFitMode,
-    isFullscreen,
-    toggleFullscreen,
-    isDragging,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
-    handleWheel,
-    handleKeyDown,
-    handleTouchStart,
-    handleTouchEnd,
-  } = useImagePreview();
+  // Local UI state (NOT using useImagePreview hook to avoid state conflicts)
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
+  const [fitMode, setFitMode] = useState<FitMode>('contain');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
 
-  // Sync closePreview with onClose prop
-  useEffect(() => {
-    if (previewState === null) {
-      onClose?.();
-    }
-  }, [previewState, onClose]);
-
-  // Handle keyboard shortcuts
-  const handleKeyDownWrapper = (e: React.KeyboardEvent) => {
-    // Handle arrow key navigation through parent callbacks
-    if (e.key === 'ArrowLeft') {
-      if (currentNavIndex > 0) {
-        onNavigatePrevious();
-      }
-      e.preventDefault();
-      return;
-    }
-    if (e.key === 'ArrowRight') {
-      if (currentNavIndex < navigationImages.length - 1) {
-        onNavigateNext();
-      }
-      e.preventDefault();
-      return;
-    }
-    // Handle other keyboard shortcuts through the hook
-    handleKeyDown(e);
+  // Simple functions (no useCallback to avoid dependency chains)
+  const zoomIn = () => {
+    setZoomLevel(prev => Math.min(prev + 25, 500));
   };
 
-  // Handle fit mode change
+  const zoomOut = () => {
+    setZoomLevel(prev => Math.max(prev - 25, 50));
+  };
+
+  const zoomReset = () => {
+    setZoomLevel(100);
+    setPanPosition({ x: 0, y: 0 });
+  };
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(console.error);
+    } else {
+      document.exitFullscreen().catch(console.error);
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (zoomLevel > 100 || fitMode === 'actual') {
+      setIsDragging(true);
+      dragStartPosRef.current = { x: e.clientX, y: e.clientY };
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !dragStartPosRef.current) return;
+    const dx = e.clientX - dragStartPosRef.current.x;
+    const dy = e.clientY - dragStartPosRef.current.y;
+    setPanPosition(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    dragStartPosRef.current = null;
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.ctrlKey || e.metaKey) {
+      if (e.deltaY < 0) zoomIn();
+      else zoomOut();
+    } else {
+      setPanPosition(prev => ({ x: prev.x - e.deltaX, y: prev.y - e.deltaY }));
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'Escape':
+        onClose();
+        break;
+      case '+':
+      case '=':
+        zoomIn();
+        break;
+      case '-':
+      case '_':
+        zoomOut();
+        break;
+      case '0':
+        zoomReset();
+        break;
+      case 'f':
+      case 'F':
+        toggleFullscreen();
+        break;
+      case 'ArrowLeft':
+        if (currentNavIndex > 0) {
+          onNavigatePrevious();
+        }
+        e.preventDefault();
+        break;
+      case 'ArrowRight':
+        if (currentNavIndex < navigationImages.length - 1) {
+          onNavigateNext();
+        }
+        e.preventDefault();
+        break;
+    }
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (touch) {
+      dragStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!dragStartPosRef.current) return;
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+
+    const deltaX = touch.clientX - dragStartPosRef.current.x;
+    if (Math.abs(deltaX) > 50) {
+      if (deltaX > 0 && currentNavIndex > 0) {
+        onNavigatePrevious();
+      } else if (deltaX < 0 && currentNavIndex < navigationImages.length - 1) {
+        onNavigateNext();
+      }
+    }
+    dragStartPosRef.current = null;
+  };
+
+  // Handle fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
   const handleFitModeChange = (mode: FitMode) => {
     setFitMode(mode);
   };
 
-  // Loading state for image transitions
-  const [isImageLoading, setIsImageLoading] = useState(false);
+  // Loading state - simple approach without useEffect
   const [imageLoaded, setImageLoaded] = useState(true);
-
-  // Reset loading state when image changes
-  useEffect(() => {
-    const currentImage = navigationImages[currentNavIndex];
-    const currentImageUrl = currentImage ? getDisplayUrl(currentImage) : null;
-
-    if (currentImageUrl) {
-      setIsImageLoading(true);
-      setImageLoaded(false);
-
-      // Simulate progressive loading
-      const img = new Image();
-      img.onload = () => {
-        setIsImageLoading(false);
-        setImageLoaded(true);
-      };
-      img.onerror = () => {
-        setIsImageLoading(false);
-        setImageLoaded(false);
-      };
-      img.src = currentImageUrl;
-    }
-  }, [currentNavIndex, navigationImages, getDisplayUrl]);
 
   // Current image display
   const currentImage = navigationImages[currentNavIndex];
@@ -175,7 +228,7 @@ export const PreviewModal = memo<PreviewModalProps>(({
         onWheel={handleWheel}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        onKeyDown={handleKeyDownWrapper}
+        onKeyDown={handleKeyDown}
         tabIndex={0}
       >
         {currentImageUrl && (
@@ -190,34 +243,10 @@ export const PreviewModal = memo<PreviewModalProps>(({
               width: '100%',
             }}
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={{ opacity: imageLoaded ? 1 : 0.5 }}
             transition={{ duration: 0.3 }}
           >
-            {/* Loading Spinner */}
-            {isImageLoading && (
-              <motion.div
-                className="absolute inset-0 flex items-center justify-center"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                <div className="relative">
-                  <motion.div
-                    className="w-20 h-20 rounded-full"
-                    style={{
-                      background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%)',
-                    }}
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <LoadingOutlined className="text-4xl text-white" />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Main Image with Blur Effect */}
+            {/* Main Image */}
             <motion.img
               src={currentImageUrl}
               alt={`Preview ${currentNavIndex + 1}`}
@@ -230,14 +259,9 @@ export const PreviewModal = memo<PreviewModalProps>(({
                 transform: `scale(${zoomLevel / 100}) translate(${panPosition.x / (zoomLevel / 100)}px, ${panPosition.y / (zoomLevel / 100)}px)`,
                 transition: isDragging ? 'none' : 'transform 0.1s ease-out',
                 userSelect: 'none',
-                filter: imageLoaded ? 'none' : 'blur(20px)',
-                opacity: imageLoaded ? 1 : 0.5,
               }}
               onDoubleClick={zoomReset}
-              onLoad={() => {
-                setIsImageLoading(false);
-                setImageLoaded(true);
-              }}
+              onLoad={() => setImageLoaded(true)}
             />
           </motion.div>
         )}

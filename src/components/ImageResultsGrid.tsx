@@ -10,12 +10,11 @@ import {
 import {
   Card,
   Button,
-  Row,
-  Col,
 } from 'antd';
-import { motion, AnimatePresence } from 'framer-motion';
-import { memo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { memo, useState, useRef, useEffect } from 'react';
 import { LazyLoadImage } from 'react-lazy-load-image-component';
+import { Grid } from 'react-window';
 import 'react-lazy-load-image-component/src/effects/blur.css';
 import 'react-lazy-load-image-component/src/effects/opacity.css';
 
@@ -105,11 +104,23 @@ const SuccessCard = memo<{
 }>(({ id, result, prompt, imageUrl, canDownload, onPreview, onDownload }) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (!canDownload || isDownloading) return;
+    setIsDownloading(true);
+    try {
+      await onDownload();
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
   <Card
     hoverable
     className="glass-card overflow-hidden !border-0 transition-all duration-300"
+    bodyStyle={{ padding: 0 }}
     style={{
       boxShadow: isHovered ? '0 20px 40px rgba(168, 85, 247, 0.15)' : 'none',
       transform: isHovered ? 'translateY(-4px)' : 'translateY(0)',
@@ -141,19 +152,51 @@ const SuccessCard = memo<{
           alt={`Generated image ${id + 1}`}
           effect="blur"
           threshold={200}
-          className="!w-full transition-all duration-500 ease-out"
+          className="w-full! transition-all duration-500 ease-out"
           style={{
             height: 280,
             objectFit: 'cover',
             opacity: isLoaded ? 1 : 0,
             transform: isHovered ? 'scale(1.05)' : 'scale(1)',
+            filter: isDownloading ? 'blur(8px)' : 'none',
           }}
           afterLoad={() => setIsLoaded(true)}
           wrapperClassName="w-full h-full"
         />
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[var(--color-background)] via-transparent to-transparent opacity-60 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-linear-to-t from-(--color-background) via-transparent to-transparent opacity-60 transition-opacity duration-300" />
+
+        {/* Download loading overlay */}
+        {isDownloading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10">
+            <motion.div
+              className="flex flex-col items-center gap-3"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+            >
+              <motion.div
+                className="w-12 h-12 rounded-full"
+                style={{
+                  background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%)',
+                }}
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+              />
+              <span className="text-white text-sm font-medium" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                Downloading...
+              </span>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Image label at bottom */}
+        <div className="absolute bottom-3 left-3">
+          <h4 className="text-white font-semibold text-sm" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            Image #{id + 1}
+          </h4>
+        </div>
 
         {/* Zoom icon on hover */}
         <div className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
@@ -165,6 +208,27 @@ const SuccessCard = memo<{
           >
             <ZoomInOutlined className="text-white text-3xl" />
           </motion.div>
+        </div>
+
+        {/* Download indicator */}
+        <div
+          className={`absolute top-3 left-3 flex items-center gap-2 bg-accent-purple/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-lg transition-all duration-300 ${isHovered ? 'scale-110' : 'scale-100'} ${!canDownload || isDownloading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleDownload();
+          }}
+        >
+          {isDownloading ? (
+            <>
+              <LoadingOutlined className="text-white text-sm animate-spin" />
+              <span className="text-white text-xs font-medium">Downloading...</span>
+            </>
+          ) : (
+            <>
+              <DownloadOutlined className="text-white text-sm" />
+              <span className="text-white text-xs font-medium">Download</span>
+            </>
+          )}
         </div>
 
         {/* Eye indicator for preview */}
@@ -182,36 +246,16 @@ const SuccessCard = memo<{
         />
       </div>
     }
-    actions={[
-      <Button
-        key="download"
-        type="primary"
-        icon={<DownloadOutlined />}
-        disabled={!canDownload}
-        onClick={canDownload ? onDownload : undefined}
-        className="!bg-accent-purple !border-accent-purple hover:!bg-accent-purple/80"
-      >
-        Download
-      </Button>,
-    ]}
-  >
-    <div className="text-white">
-      <h4 className="font-semibold text-lg mb-2" style={{ fontFamily: "'Outfit', sans-serif" }}>
-        Image #{id + 1}
-      </h4>
-      <p className="text-gray-400 text-sm line-clamp-3">
-        {result.revised_prompt ?? prompt}
-      </p>
-    </div>
-  </Card>
+  />
 );
 });
 SuccessCard.displayName = 'SuccessCard';
 
 /**
- * ImageResultsGrid - Displays generated images with high-performance lazy loading
+ * ImageResultsGrid - Displays generated images with high-performance virtual scrolling
  *
  * Features:
+ * - Virtual scrolling with react-window for large grids (100+ images)
  * - Lazy loading with Intersection Observer API
  * - Blur-up effect for smooth image appearance
  * - Skeleton placeholders during load
@@ -220,7 +264,7 @@ SuccessCard.displayName = 'SuccessCard';
  * - Loading cards with animated spinner
  * - Error cards with retry button
  * - Success cards with preview and download actions
- * - Framer Motion animations for card appearance
+ * - Responsive grid with dynamic column calculation
  */
 export const ImageResultsGrid = memo<ImageResultsGridProps>(({
   items,
@@ -231,11 +275,102 @@ export const ImageResultsGrid = memo<ImageResultsGridProps>(({
   getDisplayUrl,
   hasDownloadableImage,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [gridWidth, setGridWidth] = useState(1200);
+  const [columnCount, setColumnCount] = useState(3);
+
+  // Calculate column count based on container width
+  useEffect(() => {
+    const updateGridSize = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.offsetWidth;
+        setGridWidth(width);
+
+        // Calculate columns based on breakpoints
+        if (width < 576) {
+          setColumnCount(1); // xs
+        } else if (width < 992) {
+          setColumnCount(2); // sm
+        } else {
+          setColumnCount(3); // lg
+        }
+      }
+    };
+
+    updateGridSize();
+    window.addEventListener('resize', updateGridSize);
+    return () => window.removeEventListener('resize', updateGridSize);
+  }, []);
+
+  // Calculate grid dimensions
+  const rowHeight = 380; // Card height + gutter
+  const columnWidth = (gridWidth - (columnCount - 1) * 16) / columnCount; // 16px gutter
+  const rowCount = Math.ceil(items.length / columnCount);
+
   // Calculate progress stats
   const completedCount = items.filter(i => i.status === 'success').length;
   const failedCount = items.filter(i => i.status === 'error').length;
   const totalCount = items.length;
   const inProgress = items.some(i => i.status === 'pending' || i.status === 'loading');
+
+  // Render individual cell in the grid
+  const Cell = memo(({ columnIndex, rowIndex, style, data }: {
+    columnIndex: number;
+    rowIndex: number;
+    style: React.CSSProperties;
+    data: {
+      columnCount: number;
+      items: ImageGenerationItem[];
+      prompt: string;
+      onDownload: (imageUrl: string) => void;
+      onPreview: (result: OpenAIImageResult, index: number) => void;
+      onRetry: (id: number) => void;
+      getDisplayUrl: (result: OpenAIImageResult) => string | null;
+      hasDownloadableImage: (result: OpenAIImageResult) => boolean;
+    };
+  }) => {
+    const index = rowIndex * data.columnCount + columnIndex;
+    const item = data.items[index];
+
+    if (!item) return null;
+
+    return (
+      <div style={{ ...style, padding: '8px' }}>
+        {/* Loading Card */}
+        {(item.status === 'pending' || item.status === 'loading') && (
+          <LoadingCard id={item.id} />
+        )}
+
+        {/* Error Card */}
+        {item.status === 'error' && (
+          <ErrorCard
+            id={item.id}
+            error={item.error}
+            onRetry={() => data.onRetry(item.id)}
+          />
+        )}
+
+        {/* Success Card */}
+        {item.status === 'success' && item.result && (() => {
+          const imageUrl = data.getDisplayUrl(item.result);
+          const canDownload = data.hasDownloadableImage(item.result);
+          return imageUrl ? (
+            <SuccessCard
+              id={item.id}
+              result={item.result!}
+              prompt={data.prompt}
+              imageUrl={imageUrl}
+              canDownload={canDownload}
+              onPreview={() => data.onPreview(item.result!, item.id)}
+              onDownload={() => data.onDownload(imageUrl)}
+            />
+          ) : null;
+        })()}
+      </div>
+    );
+  });
+
+  Cell.displayName = 'VirtualCell';
 
   return (
     <motion.div
@@ -275,51 +410,30 @@ export const ImageResultsGrid = memo<ImageResultsGridProps>(({
         )}
       </div>
 
-      <Row gutter={[16, 16]}>
-        <AnimatePresence>
-          {items.map((item, index) => (
-            <Col xs={24} sm={12} lg={8} key={item.id}>
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -30 }}
-                transition={{ delay: index * 0.05, type: 'spring', stiffness: 100 }}
-              >
-                {/* Loading Card */}
-                {(item.status === 'pending' || item.status === 'loading') && (
-                  <LoadingCard id={item.id} />
-                )}
-
-                {/* Error Card */}
-                {item.status === 'error' && (
-                  <ErrorCard
-                    id={item.id}
-                    error={item.error}
-                    onRetry={() => onRetry(item.id)}
-                  />
-                )}
-
-                {/* Success Card */}
-                {item.status === 'success' && item.result && (() => {
-                  const imageUrl = getDisplayUrl(item.result);
-                  const canDownload = hasDownloadableImage(item.result);
-                  return imageUrl ? (
-                    <SuccessCard
-                      id={item.id}
-                      result={item.result!}
-                      prompt={prompt}
-                      imageUrl={imageUrl}
-                      canDownload={canDownload}
-                      onPreview={() => onPreview(item.result!, item.id)}
-                      onDownload={() => onDownload(imageUrl)}
-                    />
-                  ) : null;
-                })()}
-              </motion.div>
-            </Col>
-          ))}
-        </AnimatePresence>
-      </Row>
+      {/* Virtual Grid Container */}
+      <div ref={containerRef} className="w-full">
+        <Grid
+          columnCount={columnCount}
+          columnWidth={columnWidth}
+          height={Math.min(rowCount * rowHeight, 800)} // Max height 800px, then scroll
+          rowCount={rowCount}
+          rowHeight={rowHeight}
+          width={gridWidth}
+          itemData={{
+            items,
+            prompt,
+            onDownload,
+            onPreview,
+            onRetry,
+            getDisplayUrl,
+            hasDownloadableImage,
+            columnCount,
+          }}
+          overscanCount={2} // Render 2 extra rows/columns for smoother scrolling
+        >
+          {Cell}
+        </Grid>
+      </div>
 
       {/* Custom CSS for skeleton shimmer animation */}
       <style>{`

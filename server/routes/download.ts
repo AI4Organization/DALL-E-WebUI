@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { Router, Request, Response } from 'express';
+import pLimit from 'p-limit';
 import sharp from 'sharp';
 
 import type { DownloadApiResponse, DownloadApiRequestBody, ImageOutputFormat } from '../../types';
@@ -8,11 +9,34 @@ const router = Router();
 
 const VALID_FORMATS: ImageOutputFormat[] = ['png', 'jpeg', 'webp'];
 
+// Concurrency limit for parallel Sharp processing
+// Utilizes libuv's thread pool for efficient parallel image processing
+const sharpLimit = pLimit(4);
+
 function isValidFormat(format: string): format is ImageOutputFormat {
   return VALID_FORMATS.includes(format as ImageOutputFormat);
 }
 
+/**
+ * Converts an image buffer to the specified format using Sharp
+ * Wraps the conversion in a concurrency-limited task for parallel processing
+ *
+ * @param buffer - Image buffer to convert
+ * @param format - Target format
+ * @returns Converted buffer and MIME type
+ */
 async function convertImage(
+  buffer: Buffer,
+  format: ImageOutputFormat
+): Promise<{ data: Buffer; mimeType: string }> {
+  // Use concurrency limit for parallel Sharp processing
+  return sharpLimit(() => doConvertImage(buffer, format));
+}
+
+/**
+ * Actual Sharp conversion implementation (called within concurrency limit)
+ */
+async function doConvertImage(
   buffer: Buffer,
   format: ImageOutputFormat
 ): Promise<{ data: Buffer; mimeType: string }> {

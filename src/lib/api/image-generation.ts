@@ -19,6 +19,8 @@ export const OpenAIImageResultSchema = z.object({
   url: z.string().url().optional(),
   revised_prompt: z.string().optional(),
   b64_json: z.string().optional(),
+  // Client-side Blob URL (not part of API response, but we allow it for compatibility)
+  blobUrl: z.string().optional(),
 }) as z.ZodType<OpenAIImageResult>;
 
 /**
@@ -190,13 +192,22 @@ export function isAbortError(error: unknown): error is Error & { name: 'AbortErr
 
 /**
  * Helper function to get display URL from OpenAI image result
- * Handles both URL and base64 formats
+ * Handles Blob URL, URL, and base64 formats
+ *
+ * Priority: blobUrl > url > base64 data URL
  */
 export function getImageDisplayUrl(result: OpenAIImageResult): string | null {
+  // Prefer Blob URL (most memory-efficient for base64 images)
+  if (result.blobUrl) return result.blobUrl;
+
+  // Fall back to regular URL
   if (result.url) return result.url;
+
+  // Final fallback: base64 data URL (least memory-efficient)
   if (result.b64_json) {
     return `data:image/png;base64,${result.b64_json}`;
   }
+
   return null;
 }
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import type { ImageOutputFormat } from '../../../types';
 import { apiClient, ApiError } from '../api-client';
+import { downloadCache } from '../cache/imageDownloadCache';
 
 /**
  * Zod schema for download API response
@@ -34,6 +35,8 @@ export interface DownloadResult {
   mimeType: string;
   /** Suggested file extension */
   extension: string;
+  /** Whether this result came from cache */
+  cached?: boolean;
 }
 
 /**
@@ -43,7 +46,8 @@ export interface DownloadResult {
  * converts it to the target format, and returns base64-encoded data.
  *
  * Features:
- * - Support for multiple formats (webp, png, jpg, jpeg, gif, avif)
+ * - LRU cache for converted images (prevents redundant conversions)
+ * - Support for multiple formats (webp, png, jpeg)
  * - AbortSignal support for cancellation
  * - Type-safe error handling
  *
@@ -66,6 +70,15 @@ export async function downloadImage(
 ): Promise<DownloadResult> {
   const { imageUrl, format, filename, signal } = params;
 
+  // Check cache first
+  const cachedResult = downloadCache.get(imageUrl, format);
+  if (cachedResult) {
+    // Return cached result (extract base64 data from data URL)
+    const base64Data = cachedResult.includes(',') ? cachedResult : `data:${getFormatInfo(format).mimeType};base64,${cachedResult}`;
+    const { mimeType, extension } = getFormatInfo(format);
+    return { base64Data, mimeType, extension, cached: true };
+  }
+
   try {
     const payload = {
       imageUrl,
@@ -83,10 +96,14 @@ export async function downloadImage(
     // Get MIME type and extension for the format
     const { mimeType, extension } = getFormatInfo(format);
 
+    // Store in cache
+    downloadCache.set(imageUrl, format, validatedResponse.result);
+
     return {
       base64Data: validatedResponse.result,
       mimeType,
       extension,
+      cached: false,
     };
   } catch (error) {
     // Re-throw ApiError as-is
@@ -144,7 +161,7 @@ export function triggerDownload(
 ): void {
   // Extract base64 string from data URL format (data:image/xxx;base64,xxxxx)
   const base64String = base64Data.includes(',')
-    ? base64Data.split(',')[1]
+    ? (base64Data.split(',')[1] ?? base64Data)
     : base64Data;
 
   // Create a blob from the base64 data

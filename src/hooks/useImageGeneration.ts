@@ -1,5 +1,5 @@
 import pLimit from 'p-limit';
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 
 import type {
@@ -16,6 +16,7 @@ import type {
 import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../../types';
 import { generateImages as apiGenerateImages, isAbortError } from '../lib/api/image-generation';
 import { ApiError } from '../lib/api-client';
+import { base64ToBlobUrl, revokeBlobUrls, extractBlobUrlsFromItems } from '../lib/utils/blobUrl';
 
 // Helper functions
 const getPromptLimit = (modelName: string | null): number => {
@@ -30,6 +31,61 @@ const getMaxImages = (modelName: string | null): number => {
   if (modelName === 'dall-e-3') return 10;
   if (modelName === 'dall-e-2') return 10;
   return 10;
+};
+
+// Image lifecycle management constants
+const MAX_STORED_IMAGES = 20; // Keep maximum of 20 images
+const CLEANUP_THRESHOLD = 30; // Trigger cleanup when exceeding 30 images
+
+/**
+ * Prunes old images to prevent unbounded memory growth
+ * Revokes Blob URLs before removing images
+ *
+ * @param items - Current image items array
+ * @returns Pruned items array
+ */
+const pruneOldImages = (items: ImageGenerationItem[]): ImageGenerationItem[] => {
+  if (items.length > CLEANUP_THRESHOLD) {
+    // Revoke Blob URLs for items to be removed
+    const toRemove = items.slice(0, items.length - MAX_STORED_IMAGES);
+    const blobUrls = extractBlobUrlsFromItems(toRemove);
+    revokeBlobUrls(blobUrls);
+
+    // Keep only the most recent MAX_STORED_IMAGES items
+    return items.slice(-MAX_STORED_IMAGES);
+  }
+  return items;
+};
+
+/**
+ * Converts base64 image data to Blob URL for memory efficiency
+ * @param result - OpenAI image result (may contain b64_json or url)
+ * @returns Image result with blobUrl added if base64 was present
+ */
+const convertBase64ToBlobUrl = (result: OpenAIImageResult): OpenAIImageResult => {
+  // Only convert if we have base64 data and don't already have a blobUrl
+  if (result.b64_json && !result.blobUrl) {
+    // Determine MIME type based on output format or default to PNG
+    // For GPT Image 1.5, the format is determined by response_format
+    // Default to PNG for base64 images
+    const mimeType = 'image/png';
+
+    try {
+      const blobUrl = base64ToBlobUrl(result.b64_json, mimeType);
+
+      // Return new object with blobUrl, keeping original b64_json for potential download
+      return {
+        ...result,
+        blobUrl,
+      };
+    } catch (error) {
+      console.error('Failed to convert base64 to Blob URL:', error);
+      // Return original result if conversion fails
+      return result;
+    }
+  }
+
+  return result;
 };
 
 export interface UseImageGenerationOptions {
@@ -83,7 +139,24 @@ export function useImageGeneration(
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    setItems([]);
+
+    // Revoke all Blob URLs before clearing items
+    setItems(prevItems => {
+      const blobUrls = extractBlobUrlsFromItems(prevItems);
+      revokeBlobUrls(blobUrls);
+      return [];
+    });
+  }, []);
+
+  // Cleanup effect: Revoke all Blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      setItems(prevItems => {
+        const blobUrls = extractBlobUrlsFromItems(prevItems);
+        revokeBlobUrls(blobUrls);
+        return [];
+      });
+    };
   }, []);
 
   const generateImages = useCallback(async (): Promise<void> => {
@@ -143,6 +216,13 @@ export function useImageGeneration(
       hasErrors = true;
     }
 
+    if (model === 'dall-e-2' && !DALL_E_2_SIZES.includes(size)) {
+      toast.error('Invalid Size for DALL-E 2', {
+        description: `Choose: 256x256, 512x512, or 1024x1024.`,
+      });
+      hasErrors = true;
+    }
+
     if (model === 'gpt-image-1.5' && !GPT_IMAGE_1_5_SIZES.includes(size)) {
       toast.error('Invalid Size for GPT Image 1.5', {
         description: `Choose: auto, 1024x1024, 1536x1024, or 1024x1536.`,
@@ -165,17 +245,23 @@ export function useImageGeneration(
       });
     }
 
-    // Initialize generation items
+    // Initialize generation items (preserving existing items with unique IDs)
     setIsGenerating(true);
-    const initialItems: ImageGenerationItem[] = Array.from({ length: number }, (_, i) => ({
-      id: i,
+    const nextId = items.length > 0 ? Math.max(...items.map(i => i.id)) + 1 : 0;
+    const newItems: ImageGenerationItem[] = Array.from({ length: number }, (_, i) => ({
+      id: nextId + i,
       status: 'pending' as ImageGenerationStatus,
     }));
-    setItems(initialItems);
+
+    // Apply pruning before adding new items
+    setItems(pruneOldImages([...items, ...newItems]));
 
     // Helper to update item
     const updateItem = (id: number, updates: Partial<ImageGenerationItem>) => {
-      setItems(prev => prev.map(item => (item.id === id ? { ...item, ...updates } : item)));
+      setItems(prev => {
+        const updated = prev.map(item => (item.id === id ? { ...item, ...updates } : item));
+        return pruneOldImages(updated);
+      });
     };
 
     // Single image generation using the new API layer
@@ -197,7 +283,9 @@ export function useImageGeneration(
 
         const result = images[0];
         if (result) {
-          updateItem(id, { status: 'success', result });
+          // Convert base64 to Blob URL for memory efficiency
+          const resultWithBlobUrl = convertBase64ToBlobUrl(result);
+          updateItem(id, { status: 'success', result: resultWithBlobUrl });
           toast.success(`Image ${id + 1} of ${number} ready!`);
         } else {
           throw new Error('No image data returned');
@@ -243,13 +331,25 @@ export function useImageGeneration(
           signal: abortController.signal,
         });
 
-        const updatedItems = images.map((result, i) => ({
-          id: i,
-          status: 'success' as ImageGenerationStatus,
-          result,
-        }));
+        // Update existing pending items with results (they were already added to state)
+        setItems(prev => {
+          const firstNewId = prev.length > 0 ? Math.max(...prev.map(i => i.id)) - number + 1 : 0;
 
-        setItems(updatedItems);
+          const updated = prev.map(item => {
+            // Update pending items with their corresponding results
+            const index = item.id - firstNewId;
+            if (index >= 0 && index < images.length) {
+              return {
+                ...item,
+                status: 'success' as ImageGenerationStatus,
+                result: convertBase64ToBlobUrl(images[index]!),
+              };
+            }
+            return item;
+          });
+
+          return pruneOldImages(updated);
+        });
         toast.success(`${images.length} image${images.length !== 1 ? 's' : ''} generated!`);
       } else {
         // DALL-E 3/2: Parallel requests
@@ -283,7 +383,7 @@ export function useImageGeneration(
       setIsGenerating(false);
       abortControllerRef.current = null;
     }
-  }, [model, prompt, number, quality, size, style, outputFormat, background]);
+  }, [model, prompt, number, size, items, quality, style, outputFormat, background]);
 
   const retryImage = useCallback(async (id: number): Promise<void> => {
     setItems(prev =>
@@ -306,9 +406,11 @@ export function useImageGeneration(
 
       const result = images[0];
       if (result) {
+        // Convert base64 to Blob URL for memory efficiency
+        const resultWithBlobUrl = convertBase64ToBlobUrl(result);
         setItems(prev =>
           prev.map(item =>
-            item.id === id ? { ...item, status: 'success' as ImageGenerationStatus, result } : item
+            item.id === id ? { ...item, status: 'success' as ImageGenerationStatus, result: resultWithBlobUrl } : item
           )
         );
         toast.success(`Image ${id + 1} regenerated!`);

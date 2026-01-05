@@ -54,7 +54,7 @@ export const PromptInputSection = memo<PromptInputSectionProps>(({
         autoSize={false}
         maxLength={maxLength}
         style={{ height, overflowY: 'auto' }}
-        className="glass-input !text-base resize-none"
+        className="glass-input text-base! resize-none"
       />
       {/* Custom character count display */}
       <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-gray-500">

@@ -1,81 +1,25 @@
 import { useCallback, useRef, useState, useEffect } from 'react';
 
-import type { OpenAIImageResult } from '../../types';
-
 export type FitMode = 'contain' | 'actual' | 'fill';
-
-export interface PreviewState {
-  imageUrl: string;
-  currentIndex: number;
-  totalImages: number;
-}
-
-export interface UseImagePreviewReturn {
-  /** Current preview state or null */
-  previewState: PreviewState | null;
-  /** Open preview modal */
-  openPreview: (result: OpenAIImageResult, index: number, allImages: OpenAIImageResult[]) => void;
-  /** Close preview modal */
-  closePreview: () => void;
-  /** Navigate to previous image */
-  navigatePrevious: () => void;
-  /** Navigate to next image */
-  navigateNext: () => void;
-  /** Zoom level (50-500%) */
-  zoomLevel: number;
-  /** Set zoom level directly */
-  setZoomLevel: React.Dispatch<React.SetStateAction<number>>;
-  /** Increase zoom */
-  zoomIn: () => void;
-  /** Decrease zoom */
-  zoomOut: () => void;
-  /** Reset zoom to 100% */
-  zoomReset: () => void;
-  /** Pan position {x, y} */
-  panPosition: { x: number; y: number };
-  /** Current fit mode */
-  fitMode: FitMode;
-  /** Change fit mode */
-  setFitMode: (mode: FitMode) => void;
-  /** Whether fullscreen is active */
-  isFullscreen: boolean;
-  /** Toggle fullscreen */
-  toggleFullscreen: () => void;
-  /** Whether dragging is active */
-  isDragging: boolean;
-  /** Mouse down handler */
-  handleMouseDown: (e: React.MouseEvent) => void;
-  /** Mouse move handler */
-  handleMouseMove: (e: React.MouseEvent) => void;
-  /** Mouse up handler */
-  handleMouseUp: () => void;
-  /** Wheel handler for zoom */
-  handleWheel: (e: React.WheelEvent) => void;
-  /** Keyboard handler */
-  handleKeyDown: (e: React.KeyboardEvent) => void;
-  /** Touch start handler */
-  handleTouchStart: (e: React.TouchEvent) => void;
-  /** Touch end handler */
-  handleTouchEnd: (e: React.TouchEvent) => void;
-}
 
 const ZOOM_MIN = 50;
 const ZOOM_MAX = 500;
 const ZOOM_STEP = 25;
 
 /**
- * Custom hook for managing image preview modal state and interactions
+ * Custom hook for managing image preview UI controls (zoom, pan, fit mode, fullscreen)
+ *
+ * This hook does NOT manage navigation state - only the UI interactions.
+ * Navigation should be managed by the parent component via props.
  *
  * Features:
  * - Zoom (50-500%) with mouse wheel and keyboard shortcuts
  * - Pan (drag when zoomed in or actual size mode)
  * - Fit modes (contain, actual, fill)
- * - Navigation between multiple images
  * - Keyboard shortcuts for all actions
  * - Touch gestures for mobile
  */
-export function useImagePreview(): UseImagePreviewReturn {
-  const [previewState, setPreviewState] = useState<PreviewState | null>(null);
+export function usePreviewControls() {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });
   const [fitMode, setFitMode] = useState<FitMode>('contain');
@@ -84,41 +28,6 @@ export function useImagePreview(): UseImagePreviewReturn {
   const [touchStart, setTouchStart] = useState<number | null>(null);
 
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
-
-  const openPreview = useCallback((
-    result: OpenAIImageResult,
-    index: number,
-    allImages: OpenAIImageResult[]
-  ) => {
-    setPreviewState({
-      imageUrl: result.url || result.b64_json || '',
-      currentIndex: index,
-      totalImages: allImages.length,
-    });
-    setZoomLevel(100);
-    setPanPosition({ x: 0, y: 0 });
-    setFitMode('contain');
-  }, []);
-
-  const closePreview = useCallback(() => {
-    setPreviewState(null);
-    setZoomLevel(100);
-    setPanPosition({ x: 0, y: 0 });
-    setFitMode('contain');
-    setIsFullscreen(false);
-  }, []);
-
-  const navigatePrevious = useCallback(() => {
-    if (!previewState) return;
-    // Note: The caller will need to handle getting the actual image from the array
-    // This is a simplified version - the full implementation would need access to the images array
-    closePreview(); // Simplified - would need proper navigation
-  }, [previewState, closePreview]);
-
-  const navigateNext = useCallback(() => {
-    if (!previewState) return;
-    closePreview(); // Simplified
-  }, [previewState, closePreview]);
 
   const zoomIn = useCallback(() => {
     setZoomLevel(prev => Math.min(prev + ZOOM_STEP, ZOOM_MAX));
@@ -131,6 +40,7 @@ export function useImagePreview(): UseImagePreviewReturn {
   const zoomReset = useCallback(() => {
     setZoomLevel(100);
     setPanPosition({ x: 0, y: 0 });
+    setFitMode('contain');
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -185,12 +95,10 @@ export function useImagePreview(): UseImagePreviewReturn {
     // State is updated by the fullscreenchange event listener
   }, []);
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (!previewState) return;
-
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, onClose?: () => void) => {
     switch (e.key) {
       case 'Escape':
-        closePreview();
+        onClose?.();
         break;
       case '+':
       case '=':
@@ -208,8 +116,7 @@ export function useImagePreview(): UseImagePreviewReturn {
         toggleFullscreen();
         break;
     }
-    // Note: ArrowLeft and ArrowRight navigation is handled by the parent component
-  }, [previewState, closePreview, zoomIn, zoomOut, zoomReset, toggleFullscreen]);
+  }, [zoomIn, zoomOut, zoomReset, toggleFullscreen]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
@@ -218,7 +125,7 @@ export function useImagePreview(): UseImagePreviewReturn {
     }
   }, []);
 
-  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+  const handleTouchEnd = useCallback((e: React.TouchEvent, onNavigatePrevious?: () => void, onNavigateNext?: () => void) => {
     if (!touchStart) return;
 
     const touch = e.changedTouches[0];
@@ -229,14 +136,14 @@ export function useImagePreview(): UseImagePreviewReturn {
     // Swipe threshold
     if (Math.abs(deltaX) > 50) {
       if (deltaX > 0) {
-        navigatePrevious();
+        onNavigatePrevious?.();
       } else {
-        navigateNext();
+        onNavigateNext?.();
       }
     }
 
     setTouchStart(null);
-  }, [touchStart, navigatePrevious, navigateNext]);
+  }, [touchStart]);
 
   // Handle fullscreen change events
   useEffect(() => {
@@ -250,27 +157,7 @@ export function useImagePreview(): UseImagePreviewReturn {
     };
   }, []);
 
-  // Keyboard shortcuts with modal open
-  useEffect(() => {
-    const handleKeyDownGlobal = (e: Event) => {
-      // Only handle if modal is open
-      if (previewState && e instanceof KeyboardEvent) {
-        handleKeyDown(e);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDownGlobal);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDownGlobal);
-    };
-  }, [previewState, handleKeyDown]);
-
   return {
-    previewState,
-    openPreview,
-    closePreview,
-    navigatePrevious,
-    navigateNext,
     zoomLevel,
     setZoomLevel,
     zoomIn,

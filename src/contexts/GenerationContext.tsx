@@ -1,7 +1,6 @@
 import { createContext, useContext, ReactNode } from 'react';
 
 import type {
-  ModelOption,
   ImageQuality,
   GPTImageQuality,
   ImageSize,

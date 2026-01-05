@@ -10,7 +10,7 @@ import {
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import pLimit from 'p-limit';
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, lazy, Suspense, useRef } from 'react';
 import { toast } from 'sonner';
 
 import type {
@@ -32,11 +32,11 @@ import { ImageResultsGrid } from './components/ImageResultsGrid';
 import { PromptInputSection } from './components/PromptInputSection';
 import { SettingsGrid } from './components/SettingsGrid';
 import { ThemeToggle } from './components/ThemeToggle';
-import { useImageContext } from './contexts/ImageContext';
 import { downloadAndSave } from './lib/api/download';
 import { getImageDisplayUrl, hasDownloadableImage } from './lib/api/image-generation';
 import { ApiError } from './lib/api-client';
 import { useTheme } from './lib/theme';
+import { useImageStore } from './stores/useImageStore';
 
 // Lazy load PreviewModal for code splitting
 const LazyPreviewModal = lazy(() => import('./components/PreviewModal').then(m => ({ default: m.PreviewModal })));
@@ -151,42 +151,57 @@ const FloatingBlob: React.FC<{ className?: string; color: string; delay?: number
 // ============ Main Component ============
 export default function App(): React.ReactElement {
   useTheme();
-  const {
-    previewImage,
-    navigationImages,
-    currentNavIndex,
-    openPreview: openPreviewContext,
-    closePreview,
-    navigatePrevious: handlePreviousImage,
-    navigateNext: handleNextImage,
-  } = useImageContext();
 
-  // Set document title
-  useEffect(() => {
-    document.title = 'GenAI Studio - Create Images with AI';
-  }, []);
+  // ============ Zustand Store Individual Selectors ============
+  // Using individual selectors to avoid infinite loop from object reference changes
+  // Settings state
+  const model = useImageStore((state) => state.model);
+  const prompt = useImageStore((state) => state.prompt);
+  const number = useImageStore((state) => state.number);
+  const quality = useImageStore((state) => state.quality);
+  const size = useImageStore((state) => state.size);
+  const style = useImageStore((state) => state.style);
+  const outputFormat = useImageStore((state) => state.outputFormat);
+  const background = useImageStore((state) => state.background);
 
-  // ============ State ============
-  const [prompt, setPrompt] = useState<string>('');
+  // Settings actions
+  const setModel = useImageStore((state) => state.setModel);
+  const setPrompt = useImageStore((state) => state.setPrompt);
+  const setNumber = useImageStore((state) => state.setNumber);
+  const setQuality = useImageStore((state) => state.setQuality);
+  const setSize = useImageStore((state) => state.setSize);
+  const setStyle = useImageStore((state) => state.setStyle);
+  const setOutputFormat = useImageStore((state) => state.setOutputFormat);
+  const setBackground = useImageStore((state) => state.setBackground);
 
-  const [number, setNumber] = useState<number>(4);
-  const [generationItems, setGenerationItems] = useState<ImageGenerationItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [isGenerationInProgress, setIsGenerationInProgress] = useState<boolean>(false);
+  // Generation state
+  const generationItems = useImageStore((state) => state.items);
+  const loading = useImageStore((state) => state.isGenerating);
 
-  const [model, setModel] = useState<string | null>(null);
+  // Generation actions
+  const setLoading = useImageStore((state) => state.setGenerating);
+  const setGenerationItems = useImageStore((state) => state.setItems);
+  const updateItem = useImageStore((state) => state.updateItem);
+  const addItem = useImageStore((state) => state.addItem);
+  const clearItems = useImageStore((state) => state.clearItems);
+
+  // Preview state
+  const previewImage = useImageStore((state) => state.previewImage);
+  const navigationImages = useImageStore((state) => state.navigationImages);
+  const currentNavIndex = useImageStore((state) => state.currentNavIndex);
+
+  // Preview actions
+  const openPreviewContext = useImageStore((state) => state.openPreview);
+  const closePreview = useImageStore((state) => state.closePreview);
+  const handlePreviousImage = useImageStore((state) => state.navigatePrevious);
+  const handleNextImage = useImageStore((state) => state.navigateNext);
+
+  // Local state (non-store state)
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [configLoading, setConfigLoading] = useState<boolean>(true);
+  const [isGenerationInProgress, setIsGenerationInProgress] = useState<boolean>(false);
 
-  const [quality, setQuality] = useState<ImageQuality | GPTImageQuality>('standard');
-  const [size, setSize] = useState<ImageSize>('1024x1024');
-  const [style, setStyle] = useState<ImageStyle>('vivid');
-  const [outputFormat, setOutputFormat] = useState<ImageOutputFormat>('webp');
-  const [background, setBackground] = useState<GPTImageBackground>('auto');
-
-  // Image preview state
-
-  // Zoom & Pan State
+  // Zoom & Pan State (handled by useImagePreview hook in PreviewModal)
   const [, setZoomLevel] = useState<number>(100);  // 50% to 500%
   const [, setPanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [, setIsDragging] = useState<boolean>(false);
@@ -194,6 +209,11 @@ export default function App(): React.ReactElement {
 
   // Fullscreen State
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+
+  // Set document title
+  useEffect(() => {
+    document.title = 'GenAI Studio - Create Images with AI';
+  }, []);
 
   // ============ Memoized Values ============
   // Memoize prompt limit to avoid recomputing on every render
@@ -355,7 +375,7 @@ export default function App(): React.ReactElement {
     }
 
     // Clear previous results and set loading state
-    setGenerationItems([]);
+    clearItems();
     setLoading(true);
     setIsGenerationInProgress(true);
 
@@ -365,15 +385,6 @@ export default function App(): React.ReactElement {
       status: 'pending' as ImageGenerationStatus,
     }));
     setGenerationItems(initialItems);
-
-    // Helper function to update a single generation item
-    const updateItem = (id: number, updates: Partial<ImageGenerationItem>): void => {
-      setGenerationItems((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, ...updates } : item
-        )
-      );
-    };
 
     // Single image generation function
     const generateSingleImage = async (id: number): Promise<void> => {
@@ -504,12 +515,8 @@ export default function App(): React.ReactElement {
 
   // Retry a single failed image generation
   const retryImage = useCallback(async (id: number): Promise<void> => {
-    // Update status to loading
-    setGenerationItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: 'loading' as ImageGenerationStatus, error: undefined } : item
-      )
-    );
+    // Update status to loading using store action
+    updateItem(id, { status: 'loading' as ImageGenerationStatus, error: undefined });
 
     const queryParams = new URLSearchParams({
       p: encodeURIComponent(prompt),
@@ -537,11 +544,7 @@ export default function App(): React.ReactElement {
       const result = res.data.result?.[0];
 
       if (result) {
-        setGenerationItems((prev) =>
-          prev.map((item) =>
-            item.id === id ? { ...item, status: 'success' as ImageGenerationStatus, result } : item
-          )
-        );
+        updateItem(id, { status: 'success' as ImageGenerationStatus, result });
         toast.success(`Image ${id + 1} regenerated successfully!`);
       } else {
         throw new Error('No image data returned');
@@ -549,14 +552,10 @@ export default function App(): React.ReactElement {
     } catch (err) {
       console.error(`Image ${id + 1} retry error:`, err);
       const errorMessage = getApiErrorMessage(err);
-      setGenerationItems((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, status: 'error' as ImageGenerationStatus, error: errorMessage } : item
-        )
-      );
+      updateItem(id, { status: 'error' as ImageGenerationStatus, error: errorMessage });
       toast.error(`Image ${id + 1} retry failed: ${errorMessage}`);
     }
-  }, [prompt, quality, size, model, style, outputFormat, background]);
+  }, [prompt, quality, size, model, style, outputFormat, background, updateItem]);
 
   const handleGenerate = useCallback((): void => {
     void getImages();
@@ -622,51 +621,60 @@ export default function App(): React.ReactElement {
     setIsDragging(false);
   }, []);
 
-  const handleFullscreenToggle = useCallback((): void => {
+  const handleFullscreenToggle = (): void => {
     setIsFullscreen(prev => !prev);
-  }, []);
+  };
 
-  // Update keyboard shortcuts
-  const handleKeyDown = useCallback((e: KeyboardEvent): void => {
-    if (!previewImage) return;
+  // TEMPORARILY DISABLED: Global keyboard/mouse listeners to debug infinite loop issue
+  // // Ref to store latest handlers for event listeners
+  // const handlersRef = useRef({
+  //   handleKeyDown: null as ((e: KeyboardEvent) => void) | null,
+  //   handleMouseUp: null as (() => void) | null,
+  // });
 
-    // Navigation
-    if (e.key === 'Escape') closePreview();
-    if (e.key === 'ArrowLeft') handlePreviousImage();
-    if (e.key === 'ArrowRight') handleNextImage();
+  // // Update keyboard shortcuts - regular function (not useCallback) to avoid dependency issues
+  // const handleKeyDown = (e: KeyboardEvent): void => {
+  //   if (!previewImage) return;
+  //   if (e.key === 'Escape') closePreview();
+  //   if (e.key === 'ArrowLeft') handlePreviousImage();
+  //   if (e.key === 'ArrowRight') handleNextImage();
+  //   if (e.key === '+' || e.key === '=') handleZoomIn();
+  //   if (e.key === '-' || e.key === '_') handleZoomOut();
+  //   if (e.key === '0') handleZoomReset();
+  //   if (e.key === 'f') {
+  //     const modes: Array<'contain' | 'actual' | 'fill'> = ['contain', 'actual', 'fill'];
+  //     const currentIdx = fitMode !== undefined ? modes.indexOf(fitMode) : 0;
+  //     if (currentIdx >= 0) {
+  //       const nextMode = modes[(currentIdx + 1) % modes.length]!;
+  //       if (nextMode) {
+  //         handleFitModeChange(nextMode);
+  //       }
+  //     }
+  //   }
+  //   if (e.key === 'F11') {
+  //     e.preventDefault();
+  //     handleFullscreenToggle();
+  //   }
+  // };
 
-    // Zoom
-    if (e.key === '+' || e.key === '=') handleZoomIn();
-    if (e.key === '-' || e.key === '_') handleZoomOut();
-    if (e.key === '0') handleZoomReset();
-
-    // Fit mode
-    if (e.key === 'f') {
-      const modes: Array<'contain' | 'actual' | 'fill'> = ['contain', 'actual', 'fill'];
-      const currentIdx = fitMode !== undefined ? modes.indexOf(fitMode) : 0;
-      if (currentIdx >= 0) {
-        const nextMode = modes[(currentIdx + 1) % modes.length]!;
-        if (nextMode) {
-          handleFitModeChange(nextMode);
-        }
-      }
-    }
-
-    // Fullscreen
-    if (e.key === 'F11') {
-      e.preventDefault();
-      handleFullscreenToggle();
-    }
-  }, [previewImage, closePreview, handlePreviousImage, handleNextImage, handleZoomIn, handleZoomOut, handleZoomReset, handleFitModeChange, fitMode, handleFullscreenToggle]);
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [previewImage, currentNavIndex, navigationImages, fitMode, handleZoomIn, handleZoomOut, handleZoomReset, handleFitModeChange, handleFullscreenToggle, handleMouseUp]);
+  // useEffect(() => {
+  //   const keyHandler = (e: Event) => {
+  //     if (e instanceof KeyboardEvent && handlersRef.current.handleKeyDown) {
+  //       handlersRef.current.handleKeyDown(e);
+  //     }
+  //   };
+  //   const mouseUpHandler = () => {
+  //     if (handlersRef.current.handleMouseUp) {
+  //       handlersRef.current.handleMouseUp();
+  //     }
+  //   };
+  //   window.addEventListener('keydown', keyHandler);
+  //   window.addEventListener('mouseup', mouseUpHandler);
+  //   return () => {
+  //     window.removeEventListener('keydown', keyHandler);
+  //     window.removeEventListener('mouseup', mouseUpHandler);
+  //   };
+  // }, []);
 
   // ============ Render ============
   return (
