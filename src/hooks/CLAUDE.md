@@ -13,6 +13,8 @@ This directory contains custom React hooks that encapsulate reusable stateful lo
 | `useAutoResizeTextArea` | Auto-resizing textarea height | `useAutoResizeTextArea.ts` |
 | `useImageGeneration` | Image generation API calls with retry | `useImageGeneration.ts` |
 | `useImagePreview` | Image preview modal state and controls | `useImagePreview.ts` |
+| `usePreviewControls` | Preview zoom/pan/fit/fullscreen controls | `usePreviewControls.ts` |
+| `useImagePreload` | Image preloading for smooth navigation | `useImagePreload.ts` |
 
 ## Hook Details
 
@@ -406,3 +408,178 @@ export function useHookName(options?: UseHookNameOptions): UseHookNameReturn {
 - Expensive computations use useMemo
 - AbortController used for cancellable async operations
 - p-limit used for concurrency control in image generation
+
+---
+
+### `usePreviewControls`
+
+**Purpose:** Manages image preview UI controls (zoom, pan, fit mode, fullscreen) separately from navigation state.
+
+**Signature:**
+```typescript
+export function usePreviewControls(): UsePreviewControlsReturn
+```
+
+**Return Type:**
+```typescript
+export type FitMode = 'contain' | 'actual' | 'fill';
+
+export interface UsePreviewControlsReturn {
+  zoomLevel: number;              // 50-500
+  setZoomLevel: React.Dispatch<React.SetStateAction<number>>;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  zoomReset: () => void;
+  panPosition: { x: number; y: number };
+  fitMode: FitMode;
+  setFitMode: React.Dispatch<React.SetStateAction<FitMode>>;
+  isFullscreen: boolean;
+  toggleFullscreen: () => void;
+  isDragging: boolean;
+  handleMouseDown: (e: React.MouseEvent) => void;
+  handleMouseMove: (e: React.MouseEvent) => void;
+  handleMouseUp: () => void;
+  handleWheel: (e: React.WheelEvent) => void;
+  handleKeyDown: (e: React.KeyboardEvent, onClose?: () => void) => void;
+  handleTouchStart: (e: React.TouchEvent) => void;
+  handleTouchEnd: (e: React.TouchEvent, onNavigatePrevious?: () => void, onNavigateNext?: () => void) => void;
+}
+```
+
+**Features:**
+- **Zoom Controls:**
+  - Slider control (50% to 500%)
+  - +/- buttons (25% step)
+  - Scroll wheel (with Ctrl/Cmd key)
+  - Keyboard: +/- keys
+  - Reset zoom (0 key)
+  - Pan with scroll wheel when not zoomed
+
+- **Pan Controls:**
+  - Click and drag when zoomed in or in actual size mode
+  - Tracks drag start position and delta
+
+- **Fit Modes:**
+  - `contain` - Fit image within container
+  - `actual` - Display at 100% actual size
+  - `fill` - Fill container (may crop)
+
+- **Fullscreen:**
+  - F11 key support
+  - Toggle button
+  - Automatic fullscreen change detection
+
+- **Keyboard Shortcuts:**
+  - ESC: Close preview (via onClose callback)
+  - +/-: Zoom in/out
+  - 0: Reset zoom
+  - F: Toggle fullscreen
+
+- **Touch Gestures:**
+  - Swipe to navigate (via callbacks)
+
+**Usage:**
+```tsx
+const {
+  zoomLevel,
+  setZoomLevel,
+  zoomIn,
+  zoomOut,
+  panPosition,
+  fitMode,
+  setFitMode,
+  isFullscreen,
+  toggleFullscreen,
+  isDragging,
+  handleMouseDown,
+  handleMouseMove,
+  handleMouseUp,
+  handleWheel,
+  handleKeyDown,
+  handleTouchStart,
+  handleTouchEnd,
+} = usePreviewControls();
+
+// In component
+<img
+  src={imageUrl}
+  style={{
+    transform: `scale(${zoomLevel / 100}) translate(${panPosition.x}px, ${panPosition.y}px)`,
+  }}
+  onMouseDown={handleMouseDown}
+  onMouseMove={handleMouseMove}
+  onMouseUp={handleMouseUp}
+  onWheel={handleWheel}
+/>
+```
+
+**Constants:**
+- `ZOOM_MIN = 50`
+- `ZOOM_MAX = 500`
+- `ZOOM_STEP = 25`
+
+---
+
+### `useImagePreload`
+
+**Purpose:** Preloads adjacent images in the background for instant navigation in the preview modal.
+
+**Signature:**
+```typescript
+export function useImagePreload(
+  images: OpenAIImageResult[],
+  currentIndex: number,
+  options?: UseImagePreloadOptions
+): void
+```
+
+**Options:**
+```typescript
+export interface UseImagePreloadOptions {
+  preloadCount?: number;  // Number of images to preload before and after (default: 2)
+  enabled?: boolean;      // Whether preloading is enabled (default: true)
+}
+```
+
+**Features:**
+- Preloads next N images and previous N images
+- Uses native Image object for browser caching
+- Tracks preloaded URLs to avoid duplicate preloading
+- Cleanup on unmount or when dependencies change
+- Configurable preload count
+
+**Usage:**
+```tsx
+useImagePreload(navigationImages, currentNavIndex, {
+  preloadCount: 2,  // Preload 2 images before and after current
+  enabled: true,    // Enable preloading
+});
+```
+
+**Helper Hook:**
+```typescript
+export function useImagePreloadCache(): {
+  clearCache: () => void;
+  addUrl: (url: string) => void;
+  hasUrl: (url: string) => boolean;
+  size: number;
+}
+```
+
+**Cache Management Hook:**
+- `clearCache()` - Clears the preloaded image cache
+- `addUrl(url)` - Adds a URL to the cache
+- `hasUrl(url)` - Checks if URL is in cache
+- `size` - Number of cached URLs
+
+**Usage with Cache:**
+```tsx
+const { clearCache } = useImagePreloadCache();
+
+useImagePreload(images, currentIndex);
+
+// Clear cache when navigating to new context
+useEffect(() => {
+  return () => clearCache();
+}, [images]);
+```

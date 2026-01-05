@@ -411,9 +411,12 @@ console.log(validated.result[0].url);
 ## Dependencies
 
 - **axios** 1.13.2 - HTTP client
-- **zod** - Runtime type validation
+- **zod** 4.3.5 - Runtime type validation
 - **../../types** - Shared TypeScript types
-- **api-client** - Core API client instance
+- **../api-client** - Core API client instance
+- **../utils/blobUrl** - Blob URL utilities for memory efficiency
+- **../cache/imageDownloadCache** - LRU cache for converted images
+- **../metrics/imagePerformance** - Performance tracking
 
 ## Testing
 

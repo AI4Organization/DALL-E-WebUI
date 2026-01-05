@@ -348,11 +348,17 @@ export const Component = memo(ComponentImpl, (prevProps, nextProps) => {
 - **react** 19.2.3 - Component library
 - **antd** 6.1.3 - UI components
 - **framer-motion** 12.23.26 - Animations
+- **react-lazy-load-image-component** 1.6.3 - Lazy loading for images
 - **@types/react** - TypeScript definitions
 - **../lib/theme** - Theme context hook
+- **../stores/useImageStore** - Zustand state management
 - **../contexts** - React contexts (GenerationContext, ImageContext)
 - **../../types** - Shared TypeScript types
-- **../hooks** - Custom hooks (useAutoResizeTextArea, useImagePreview)
+- **../hooks** - Custom hooks (useAutoResizeTextArea, useImagePreview, usePreviewControls, useImagePreload)
+- **../lib/utils/blobUrl** - Blob URL utilities
+- **../lib/api** - API client functions
+- **../lib/cache/imageDownloadCache** - LRU cache for converted images
+- **../lib/metrics/imagePerformance** - Performance tracking
 
 ## Testing
 

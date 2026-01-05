@@ -16,9 +16,37 @@ src/
 ├── App.tsx             # Main application component
 ├── components/         # React UI components
 │   ├── ThemedApp.tsx       # Ant Design ConfigProvider wrapper
-│   └── ThemeToggle.tsx     # Dark/light mode toggle button
+│   ├── ThemeToggle.tsx     # Dark/light mode toggle button
+│   ├── EmptyState.tsx      # Placeholder when no images generated
+│   ├── ErrorBoundary.tsx   # Error catching and fallback UI
+│   ├── PromptInputSection.tsx # Prompt textarea with character count
+│   ├── SettingsGrid.tsx    # Model/quality/size/style controls
+│   ├── ImageResultsGrid.tsx # Generated images display grid
+│   └── PreviewModal.tsx    # Full-screen image preview modal
+├── hooks/              # Custom React hooks
+│   ├── useAutoResizeTextArea.ts # Auto-resizing textarea
+│   ├── useImageGeneration.ts   # Image generation with retry logic
+│   ├── useImagePreview.ts      # Image preview modal state
+│   ├── usePreviewControls.ts   # Preview zoom/pan/fit controls
+│   └── useImagePreload.ts      # Image preloading for navigation
+├── contexts/           # React context providers
+│   ├── GenerationContext.tsx   # Generation state provider
+│   └── ImageContext.tsx        # Image preview navigation state
 ├── lib/                # Frontend utilities
-│   └── theme.tsx           # Theme context and provider
+│   ├── theme.tsx           # Theme context and provider
+│   ├── api-client.ts       # Core API client with axios
+│   ├── api/                # API functions with Zod validation
+│   │   ├── config.ts        # Server configuration API
+│   │   ├── image-generation.ts # Image generation with Zod
+│   │   └── download.ts      # Image format conversion API
+│   ├── utils/             # Utility functions
+│   │   └── blobUrl.ts      # Blob URL utilities for memory efficiency
+│   ├── metrics/           # Performance tracking
+│   │   └── imagePerformance.ts # Performance metrics tracking
+│   └── cache/             # Caching utilities
+│       └── imageDownloadCache.ts # LRU cache for converted images
+├── stores/             # State management (Zustand)
+│   └── useImageStore.ts   # Zustand state management store
 └── styles/             # CSS/styling
     ├── globals.css         # Global styles with Tailwind v4
     └── CLAUDE.md           # Styles documentation
@@ -149,6 +177,84 @@ API_BASE_URL=http://localhost:3001  # Backend API base URL
 - **axios** 1.13.2 - HTTP client
 - **sonner** 2.0.7 - Toast notifications
 - **p-limit** 7.2.0 - Concurrency control for parallel requests
+- **zustand** 5.0.9 - State management
+- **zod** 4.3.5 - Runtime type validation
+- **react-window** 2.2.3 - Virtualized lists and image preloading
+- **react-lazy-load-image-component** 1.6.3 - Lazy loading for images
+
+## Utilities
+
+### `lib/utils/` - Utility Functions
+
+#### `blobUrl.ts` - Blob URL Utilities
+
+Converts base64 image data to Blob URLs for efficient memory usage.
+
+**Key Features:**
+- ~90% memory reduction compared to base64 data URLs
+- Automatic garbage collection when revoked
+- Registry tracking for cleanup
+- Maximum 50 Blob URLs to prevent unbounded growth
+
+**Functions:**
+- `base64ToBlobUrl(base64, mimeType)` - Convert base64 to Blob URL
+- `revokeBlobUrl(blobUrl)` - Revoke a Blob URL to free memory
+- `revokeBlobUrls(blobUrls)` - Revoke multiple Blob URLs
+- `isBlobUrl(url)` - Check if URL is a Blob URL
+- `dataUrlToBlobUrl(dataUrl, mimeType)` - Convert data URL to Blob URL
+- `extractBlobUrlsFromItems(items)` - Extract Blob URLs from items
+- `clearAllBlobUrls()` - Clear all tracked Blob URLs
+
+### `lib/metrics/` - Performance Metrics
+
+#### `imagePerformance.ts` - Performance Tracking
+
+Tracks image loading and download performance metrics.
+
+**Key Features:**
+- Load time tracking
+- Download time tracking
+- Cache hit rate monitoring
+- Statistics aggregation
+
+**Functions:**
+- `performanceTracker.startLoad(imageId)` - Start load tracking
+- `performanceTracker.endLoad(imageId)` - End load tracking
+- `performanceTracker.startDownload(imageId)` - Start download tracking
+- `performanceTracker.endDownload(imageId, cached)` - End download tracking
+- `performanceTracker.getMetrics(imageId)` - Get metrics for image
+- `performanceTracker.getAllMetrics()` - Get all metrics
+- `performanceTracker.getStats()` - Get performance statistics
+- `performanceTracker.logStats()` - Log stats to console
+- `usePerformanceTracking(imageId)` - Hook for tracking
+
+### `lib/cache/` - Caching Utilities
+
+#### `imageDownloadCache.ts` - Image Download Cache
+
+LRU (Least Recently Used) cache for storing converted image downloads.
+
+**Key Features:**
+- LRU eviction when cache is full
+- TTL (Time To Live) expiration (30 minutes default)
+- Access count tracking for eviction priority
+- Automatic cleanup of expired entries
+- Maximum 50 entries by default
+- Blob URL cleanup on eviction
+
+**Class: `ImageDownloadCache`**
+- `set(imageUrl, format, dataUrl)` - Store converted image
+- `get(imageUrl, format)` - Retrieve converted image
+- `has(imageUrl, format)` - Check if cached
+- `delete(imageUrl, format)` - Remove specific entry
+- `clear()` - Clear all entries
+- `cleanup()` - Remove expired entries
+- `size` - Get current entry count
+- `getStats()` - Get cache statistics
+
+**Global Instance:**
+- `downloadCache` - Singleton instance of ImageDownloadCache
+- `startAutoCleanup(intervalMs)` - Start automatic cleanup interval
 
 ## Development
 
