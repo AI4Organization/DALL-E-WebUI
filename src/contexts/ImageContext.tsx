@@ -97,7 +97,9 @@ export function ImageProvider({ children }: ImageProviderProps) {
  * Hook to access image context
  *
  * Throws an error if used outside of ImageProvider.
+ * Note: Exported alongside provider - this is a custom hook, not a component.
  */
+/* eslint-disable react-refresh/only-export-components */
 export function useImageContext(): ImageContextValue {
   const context = useContext(ImageContext);
   if (context === undefined) {
@@ -105,3 +107,4 @@ export function useImageContext(): ImageContextValue {
   }
   return context;
 }
+/* eslint-enable react-refresh/only-export-components */

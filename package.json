@@ -11,9 +11,10 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:rsbuild\"",
     "dev:backend": "nodemon --exec tsx server/index.ts",
     "dev:rsbuild": "rsbuild dev",
-    "build": "npm run build:backend && npm run build:rsbuild",
+    "build": "npm run lint:all && npm run build:backend && npm run build:rsbuild",
     "build:backend": "tsc --project tsconfig.server.json",
     "build:rsbuild": "rsbuild build",
+    "prebuild": "npm run lint:all",
     "start": "concurrently \"npm run start:backend\" \"npm run start:rsbuild\"",
     "start:backend": "node server/dist/index.js",
     "start:rsbuild": "rsbuild preview",
@@ -24,8 +25,11 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
+    "typecheck": "tsc --noEmit",
+    "typecheck:watch": "tsc --noEmit --watch",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
+    "lint:all": "npm run lint && npm run typecheck",
     "prepare": "husky"
   },
   "lint-staged": {

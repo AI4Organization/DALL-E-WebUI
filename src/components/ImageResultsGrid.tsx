@@ -379,8 +379,8 @@ export const ImageResultsGrid = memo<ImageResultsGridProps>(({
                       prompt={prompt}
                       imageUrl={getDisplayUrl(item.result) || ''}
                       canDownload={hasDownloadableImage(item.result)}
-                      onPreview={() => onPreview(item.result, index)}
-                      onDownload={() => onDownload(getDisplayUrl(item.result) || '')}
+                      onPreview={() => onPreview(item.result!, index)}
+                      onDownload={() => onDownload(getDisplayUrl(item.result!) || '')}
                     />
                   ) : null}
                 </motion.div>

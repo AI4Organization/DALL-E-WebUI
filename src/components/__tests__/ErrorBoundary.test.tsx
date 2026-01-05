@@ -94,8 +94,8 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
     expect(onError).toHaveBeenCalled();
-    expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
-    expect(onError.mock.calls[0][0].message).toBe('Test error');
+    expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(Error);
+    expect(onError.mock.calls[0]?.[0]?.message).toBe('Test error');
   });
 
   it('should render custom fallback when provided', () => {

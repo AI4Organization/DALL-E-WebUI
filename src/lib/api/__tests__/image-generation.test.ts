@@ -84,7 +84,7 @@ describe('image-generation API', () => {
         n: 1,
       });
 
-      expect(result.images[0].b64_json).toBe('base64encodeddata');
+      expect(result.images[0]?.b64_json).toBe('base64encodeddata');
     });
 
     it('should include style parameter for DALL-E 3', async () => {

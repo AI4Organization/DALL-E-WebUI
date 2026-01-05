@@ -255,7 +255,9 @@ export function useImagePreview(): UseImagePreviewReturn {
     const handleKeyDownGlobal = (e: Event) => {
       // Only handle if modal is open
       if (previewState && e instanceof KeyboardEvent) {
-        handleKeyDown(e);
+        // Create a minimal object with the key property
+        const syntheticEvent = { key: e.key } as React.KeyboardEvent;
+        handleKeyDown(syntheticEvent);
       }
     };
 

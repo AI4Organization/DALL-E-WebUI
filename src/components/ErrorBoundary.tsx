@@ -151,6 +151,7 @@ export function ErrorBoundaryFallback(): React.ReactElement {
  * ```tsx
  * const SafeComponent = withErrorBoundary(MyComponent);
  * ```
+ * Note: HOC function exported alongside component - not a React component itself.
  */
 /* eslint-disable react-refresh/only-export-components */
 export function withErrorBoundary<P extends object>(
@@ -167,3 +168,4 @@ export function withErrorBoundary<P extends object>(
 
   return WrappedComponent;
 }
+/* eslint-enable react-refresh/only-export-components */

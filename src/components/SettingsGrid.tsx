@@ -83,21 +83,22 @@ function SelectLabel({ label, tooltip }: SelectLabelProps) {
   );
 }
 
-interface DisabledControlProps {
+interface DisabledControlProps<T extends object> {
   disabled: boolean;
   disabledReason?: string;
-  children: React.ReactElement;
+  children: React.ReactElement<T>;
 }
 
-function DisabledControl({ disabled, disabledReason, children }: DisabledControlProps) {
+function DisabledControl<T extends object>({ disabled, disabledReason, children }: DisabledControlProps<T>) {
+  const newProps = { ...(children.props ?? {}), disabled };
   if (disabled && disabledReason) {
     return (
       <Tooltip title={disabledReason}>
-        {React.cloneElement(children, { ...children.props, disabled })}
+        {React.cloneElement(children, newProps)}
       </Tooltip>
     );
   }
-  return React.cloneElement(children, { ...children.props, disabled });
+  return React.cloneElement(children, newProps);
 }
 
 interface SelectControlItemProps {

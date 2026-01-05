@@ -22,6 +22,7 @@ export default [
       'node_modules/**',
       'dist/**',
       'build/**',
+      'server/**',
       'server/dist/**',
       'coverage/**',
       'playwright-report/**',

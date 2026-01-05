@@ -120,6 +120,7 @@ export function GenerationProvider({
  * Hook to access generation context
  *
  * Throws an error if used outside of GenerationProvider.
+ * Note: Exported alongside provider - this is a custom hook, not a component.
  */
 /* eslint-disable react-refresh/only-export-components */
 export function useGenerationContext(): GenerationContextValue {
@@ -129,3 +130,4 @@ export function useGenerationContext(): GenerationContextValue {
   }
   return context;
 }
+/* eslint-enable react-refresh/only-export-components */

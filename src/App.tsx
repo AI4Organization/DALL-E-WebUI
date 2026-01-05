@@ -8,17 +8,17 @@ import {
   Space,
 } from 'antd';
 import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import pLimit from 'p-limit';
-import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
 import type {
-  OpenAIImageResult,
-  ModelOption,
-  ImageSize,
   ImageGenerationItem,
   ImageGenerationStatus,
+  ImageSize,
+  ModelOption,
+  OpenAIImageResult,
 } from '../types';
 import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES } from '../types';
 
@@ -34,7 +34,9 @@ import { useTheme } from './lib/theme';
 import { useImageStore } from './stores/useImageStore';
 
 // Lazy load PreviewModal for code splitting
-const LazyPreviewModal = lazy(() => import('./components/PreviewModal').then(m => ({ default: m.PreviewModal })));
+const LazyPreviewModal = lazy(() =>
+  import('./components/PreviewModal').then((m) => ({ default: m.PreviewModal }))
+);
 
 // Get API base URL from definePlugin in rsbuild.config.ts
 declare const process: { env: { API_BASE_URL: string } };
@@ -79,7 +81,6 @@ const getMaxImages = (modelName: string | null): number => {
   if (modelName === 'dall-e-2') return 10;
   return 10; // Default
 };
-
 
 // Universal output format options for all models (API-supported formats only)
 
@@ -131,7 +132,11 @@ const getApiErrorMessage = (err: unknown): string => {
 
 // ============ Floating Blob Component ============
 // Optimized: Using CSS animations instead of Framer Motion for better performance
-const FloatingBlob: React.FC<{ className?: string; color: string; delay?: number }> = ({ className, color, delay = 0 }) => (
+const FloatingBlob: React.FC<{ className?: string; color: string; delay?: number }> = ({
+  className,
+  color,
+  delay = 0,
+}) => (
   <div
     className={`absolute rounded-full blur-3xl floating-blob ${className}`}
     style={{
@@ -195,7 +200,7 @@ export default function App(): React.ReactElement {
   const [isGenerationInProgress, setIsGenerationInProgress] = useState<boolean>(false);
 
   // Zoom & Pan State (handled by useImagePreview hook in PreviewModal)
-  const [, _setZoomLevel] = useState<number>(100);  // 50% to 500%
+  const [, _setZoomLevel] = useState<number>(100); // 50% to 500%
   const [, _setPanPosition] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [, _setIsDragging] = useState<boolean>(false);
 
@@ -240,7 +245,9 @@ export default function App(): React.ReactElement {
         setAvailableModels(res.data.availableModels);
         setConfigLoading(false);
       } catch (err) {
-        const axiosError = err as { response?: { data?: { error: string; details?: string[] }; status?: number } };
+        const axiosError = err as {
+          response?: { data?: { error: string; details?: string[] }; status?: number };
+        };
         if (axiosError.response?.status === 500 && axiosError.response.data) {
           const errorData = axiosError.response.data;
           toast.error('Server Configuration Error', {
@@ -276,7 +283,10 @@ export default function App(): React.ReactElement {
   // Set default model after availableModels is populated
   useEffect(() => {
     if (!configLoading && availableModels.length > 0 && !model) {
-      const defaultModel = availableModels.find((m: ModelOption) => m.value === 'dall-e-3')?.value ?? availableModels[0]?.value ?? null;
+      const defaultModel =
+        availableModels.find((m: ModelOption) => m.value === 'dall-e-3')?.value ??
+        availableModels[0]?.value ??
+        null;
       setModel(defaultModel);
     }
   }, [configLoading, availableModels, model, setModel]);
@@ -288,19 +298,22 @@ export default function App(): React.ReactElement {
     // Client-side validation
     if (!model) {
       toast.error('No Model Selected', {
-        description: 'Please select an AI model to generate images. Choose a model from the "Model" dropdown above.',
+        description:
+          'Please select an AI model to generate images. Choose a model from the "Model" dropdown above.',
       });
       hasErrors = true;
     }
 
     if (!prompt.trim()) {
       toast.error('Empty Prompt', {
-        description: 'Please describe the image you want to create. Enter a detailed description in the "Your Prompt" text area.',
+        description:
+          'Please describe the image you want to create. Enter a detailed description in the "Your Prompt" text area.',
       });
       hasErrors = true;
     } else if (prompt.trim().length < 10) {
       toast.warning('Prompt Too Short', {
-        description: 'Your prompt is quite short. More detailed prompts usually produce better results. Try describing your vision in more detail - include style, mood, objects, colors, etc.',
+        description:
+          'Your prompt is quite short. More detailed prompts usually produce better results. Try describing your vision in more detail - include style, mood, objects, colors, etc.',
       });
     }
 
@@ -451,9 +464,7 @@ export default function App(): React.ReactElement {
         toast.success(`${results.length} image${results.length !== 1 ? 's' : ''} generated!`);
       } else {
         // DALL-E 3 and DALL-E 2: Make parallel requests (one per image)
-        const tasks = Array.from({ length: number }, (_, i) =>
-          limit(() => generateSingleImage(i))
-        );
+        const tasks = Array.from({ length: number }, (_, i) => limit(() => generateSingleImage(i)));
 
         await Promise.all(tasks);
       }
@@ -465,117 +476,144 @@ export default function App(): React.ReactElement {
       setLoading(false);
       setIsGenerationInProgress(false);
     }
-  }, [model, prompt, number, quality, size, style, outputFormat, background, clearItems, setGenerationItems, setLoading, updateItem, setIsGenerationInProgress]);
+  }, [
+    model,
+    prompt,
+    number,
+    quality,
+    size,
+    style,
+    outputFormat,
+    background,
+    clearItems,
+    setGenerationItems,
+    setLoading,
+    updateItem,
+    setIsGenerationInProgress,
+  ]);
 
-  const download = useCallback(async (imageUrl: string): Promise<void> => {
-    try {
-      // Check if it's a base64 data URL (from GPT Image 1.5)
-      if (imageUrl.startsWith('data:')) {
-        // For GPT Image 1.5, the API returns the image in the selected format
-        // Download directly in browser
-        const link = document.createElement('a');
-        link.href = imageUrl;
-        link.download = `${prompt}.${outputFormat}`;
-        link.click();
-        toast.success('Image downloaded successfully');
-      } else {
-        // For DALL-E 2/3 (URL images), use backend for format conversion
-        await downloadAndSave({
-          imageUrl,
-          format: outputFormat,
-          filename: `${prompt}.${outputFormat}`,
-        });
-        toast.success('Image downloaded successfully');
+  const download = useCallback(
+    async (imageUrl: string): Promise<void> => {
+      try {
+        // Check if it's a base64 data URL (from GPT Image 1.5)
+        if (imageUrl.startsWith('data:')) {
+          // For GPT Image 1.5, the API returns the image in the selected format
+          // Download directly in browser
+          const link = document.createElement('a');
+          link.href = imageUrl;
+          link.download = `${prompt}.${outputFormat}`;
+          link.click();
+          toast.success('Image downloaded successfully');
+        } else {
+          // For DALL-E 2/3 (URL images), use backend for format conversion
+          await downloadAndSave({
+            imageUrl,
+            format: outputFormat,
+            filename: `${prompt}.${outputFormat}`,
+          });
+          toast.success('Image downloaded successfully');
+        }
+      } catch (err) {
+        // Handle ApiError
+        if (err instanceof ApiError) {
+          const userMessage = err.getUserMessage();
+          toast.error('Failed to download image', {
+            description: userMessage,
+          });
+        } else {
+          // Handle unknown errors
+          console.error('Download error:', err);
+          toast.error('Failed to download image');
+        }
       }
-    } catch (err) {
-      // Handle ApiError
-      if (err instanceof ApiError) {
-        const userMessage = err.getUserMessage();
-        toast.error('Failed to download image', {
-          description: userMessage,
-        });
-      } else {
-        // Handle unknown errors
-        console.error('Download error:', err);
-        toast.error('Failed to download image');
-      }
-    }
-  }, [prompt, outputFormat]);
+    },
+    [prompt, outputFormat]
+  );
 
   // Retry a single failed image generation
-  const retryImage = useCallback(async (id: number): Promise<void> => {
-    // Update status to loading using store action
-    updateItem(id, { status: 'loading' as ImageGenerationStatus, error: undefined });
+  const retryImage = useCallback(
+    async (id: number): Promise<void> => {
+      // Update status to loading using store action
+      updateItem(id, { status: 'loading' as ImageGenerationStatus, error: undefined });
 
-    const queryParams = new URLSearchParams({
-      p: encodeURIComponent(prompt),
-      n: '1',
-      s: size,
-      m: model ?? 'dall-e-3',
-    });
+      const queryParams = new URLSearchParams({
+        p: encodeURIComponent(prompt),
+        n: '1',
+        s: size,
+        m: model ?? 'dall-e-3',
+      });
 
-    // Add quality for DALL-E 3 and GPT Image 1.5 (DALL-E 2 doesn't support it)
-    if (model === 'dall-e-3' || model === 'gpt-image-1.5') {
-      queryParams.append('q', quality);
-    }
-
-    if (model === 'dall-e-3') {
-      queryParams.append('st', style);
-    }
-
-    if (model === 'gpt-image-1.5') {
-      queryParams.append('of', outputFormat);
-      queryParams.append('bg', background);
-    }
-
-    try {
-      const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
-      const result = res.data.result?.[0];
-
-      if (result) {
-        updateItem(id, { status: 'success' as ImageGenerationStatus, result });
-        toast.success(`Image ${id + 1} regenerated successfully!`);
-      } else {
-        throw new Error('No image data returned');
+      // Add quality for DALL-E 3 and GPT Image 1.5 (DALL-E 2 doesn't support it)
+      if (model === 'dall-e-3' || model === 'gpt-image-1.5') {
+        queryParams.append('q', quality);
       }
-    } catch (err) {
-      console.error(`Image ${id + 1} retry error:`, err);
-      const errorMessage = getApiErrorMessage(err);
-      updateItem(id, { status: 'error' as ImageGenerationStatus, error: errorMessage });
-      toast.error(`Image ${id + 1} retry failed: ${errorMessage}`);
-    }
-  }, [prompt, quality, size, model, style, outputFormat, background, updateItem]);
+
+      if (model === 'dall-e-3') {
+        queryParams.append('st', style);
+      }
+
+      if (model === 'gpt-image-1.5') {
+        queryParams.append('of', outputFormat);
+        queryParams.append('bg', background);
+      }
+
+      try {
+        const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
+        const result = res.data.result?.[0];
+
+        if (result) {
+          updateItem(id, { status: 'success' as ImageGenerationStatus, result });
+          toast.success(`Image ${id + 1} regenerated successfully!`);
+        } else {
+          throw new Error('No image data returned');
+        }
+      } catch (err) {
+        console.error(`Image ${id + 1} retry error:`, err);
+        const errorMessage = getApiErrorMessage(err);
+        updateItem(id, { status: 'error' as ImageGenerationStatus, error: errorMessage });
+        toast.error(`Image ${id + 1} retry failed: ${errorMessage}`);
+      }
+    },
+    [prompt, quality, size, model, style, outputFormat, background, updateItem]
+  );
 
   const handleGenerate = useCallback((): void => {
     void getImages();
   }, [getImages]);
 
   // ============ Preview Handlers ============
-  const openPreview = useCallback((clickedResult: OpenAIImageResult): void => {
-    // Extract all successfully generated images
-    const allSuccessfulImages = generationItems
-      .filter(item => item.status === 'success' && item.result)
-      .map(item => item.result!);
+  const openPreview = useCallback(
+    (clickedResult: OpenAIImageResult): void => {
+      // Extract all successfully generated images
+      const allSuccessfulImages = generationItems
+        .filter((item) => item.status === 'success' && item.result)
+        .map((item) => item.result!);
 
-    // Find the index of the clicked image using a more robust comparison
-    const clickedNavIndex = allSuccessfulImages.findIndex(img => {
-      // Compare by URL first (for DALL-E 2/3)
-      if (img.url && clickedResult.url && img.url === clickedResult.url) {
-        return true;
-      }
-      // Compare by b64_json (for GPT Image 1.5)
-      if (img.b64_json && clickedResult.b64_json && img.b64_json === clickedResult.b64_json) {
-        return true;
-      }
-      return false;
-    });
+      // Find the index of the clicked image using a more robust comparison
+      const clickedNavIndex = allSuccessfulImages.findIndex((img) => {
+        // Compare by URL first (for DALL-E 2/3)
+        if (img.url && clickedResult.url && img.url === clickedResult.url) {
+          return true;
+        }
+        // Compare by b64_json (for GPT Image 1.5)
+        if (img.b64_json && clickedResult.b64_json && img.b64_json === clickedResult.b64_json) {
+          return true;
+        }
+        return false;
+      });
 
-    // Use context's openPreview with the computed values
-    const targetImage = allSuccessfulImages[clickedNavIndex >= 0 ? clickedNavIndex : 0];
-    if (targetImage) {
-      openPreviewContext(targetImage, clickedNavIndex >= 0 ? clickedNavIndex : 0, allSuccessfulImages);
-    }
-  }, [generationItems, openPreviewContext]);
+      // Use context's openPreview with the computed values
+      const targetImage = allSuccessfulImages[clickedNavIndex >= 0 ? clickedNavIndex : 0];
+      if (targetImage) {
+        openPreviewContext(
+          targetImage,
+          clickedNavIndex >= 0 ? clickedNavIndex : 0,
+          allSuccessfulImages
+        );
+      }
+    },
+    [generationItems, openPreviewContext]
+  );
 
   // TEMPORARILY DISABLED: Global keyboard/mouse listeners to debug infinite loop issue
   // // Ref to store latest handlers for event listeners
@@ -637,10 +675,26 @@ export default function App(): React.ReactElement {
       {/* Animated Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute inset-0 bg-gradient-mesh opacity-50" />
-        <FloatingBlob color="rgba(168, 85, 247, 0.4)" className="w-96 h-96 top-0 left-1/4" delay={0} />
-        <FloatingBlob color="rgba(236, 72, 153, 0.3)" className="w-80 h-80 top-1/3 right-1/4" delay={1} />
-        <FloatingBlob color="rgba(34, 211, 211, 0.3)" className="w-72 h-72 bottom-1/4 left-1/3" delay={2} />
-        <FloatingBlob color="rgba(168, 85, 247, 0.2)" className="w-64 h-64 bottom-0 right-1/3" delay={3} />
+        <FloatingBlob
+          color="rgba(168, 85, 247, 0.4)"
+          className="w-96 h-96 top-0 left-1/4"
+          delay={0}
+        />
+        <FloatingBlob
+          color="rgba(236, 72, 153, 0.3)"
+          className="w-80 h-80 top-1/3 right-1/4"
+          delay={1}
+        />
+        <FloatingBlob
+          color="rgba(34, 211, 211, 0.3)"
+          className="w-72 h-72 bottom-1/4 left-1/3"
+          delay={2}
+        />
+        <FloatingBlob
+          color="rgba(168, 85, 247, 0.2)"
+          className="w-64 h-64 bottom-0 right-1/3"
+          delay={3}
+        />
         <div className="absolute inset-0 bg-linear-to-b from-transparent via-(--color-background)/50 to-(--color-background)" />
       </div>
 
@@ -654,7 +708,10 @@ export default function App(): React.ReactElement {
         >
           {/* Hero Section */}
           <motion.div variants={itemVariants} className="text-center mb-12">
-            <h1 className="text-5xl md:text-7xl font-extrabold mb-4" style={{ fontFamily: "'Outfit', sans-serif" }}>
+            <h1
+              className="text-5xl md:text-7xl font-extrabold mb-4"
+              style={{ fontFamily: "'Outfit', sans-serif" }}
+            >
               <span className="text-white">Create </span>
               <span className="gradient-text">Breathtaking</span>
               <br />
@@ -676,7 +733,10 @@ export default function App(): React.ReactElement {
                   <ThunderboltOutlined className="text-white text-xl" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-bold text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>
+                  <h2
+                    className="text-2xl font-bold text-white"
+                    style={{ fontFamily: "'Outfit', sans-serif" }}
+                  >
                     Image Generator
                   </h2>
                   <p className="text-gray-400 text-sm">Configure your prompt and settings</p>
@@ -714,10 +774,7 @@ export default function App(): React.ReactElement {
                 />
 
                 {/* Generate Button */}
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                   <Button
                     type="primary"
                     size="large"
@@ -726,14 +783,16 @@ export default function App(): React.ReactElement {
                     loading={loading}
                     disabled={loading || configLoading}
                     block
-                    className="glow-button !h-14 !text-lg !font-semibold"
+                    className="glow-button h-14! text-lg! font-semibold!"
                     style={{
                       background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%)',
                       border: 'none',
                       borderRadius: '4px',
                     }}
                   >
-                    {loading ? 'Generating Magic...' : `Generate ${number} Image${number !== 1 ? 's' : ''}`}
+                    {loading
+                      ? 'Generating Magic...'
+                      : `Generate ${number} Image${number !== 1 ? 's' : ''}`}
                   </Button>
                 </motion.div>
               </Space>
@@ -755,9 +814,7 @@ export default function App(): React.ReactElement {
           </AnimatePresence>
 
           {/* Empty State - Show before first generation */}
-          {generationItems.length === 0 && !loading && (
-            <EmptyState variants={itemVariants} />
-          )}
+          {generationItems.length === 0 && !loading && <EmptyState variants={itemVariants} />}
         </motion.div>
 
         {/* Footer */}

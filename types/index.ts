@@ -134,6 +134,8 @@ export interface ValidationResult {
 }
 
 // ============ Environment Variable Types ============
+// Global augmentation for Node.js ProcessEnv - this is the standard TypeScript pattern
+// for extending global types from the Node.js namespace.
 /* eslint-disable @typescript-eslint/no-namespace */
 declare global {
   namespace NodeJS {
