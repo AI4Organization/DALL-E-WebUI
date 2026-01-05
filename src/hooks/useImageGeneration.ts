@@ -19,8 +19,8 @@ import {
   GPT_IMAGE_1_5_SIZES,
   SEEDREAM_4_5_SIZES,
 } from '../../types';
-import { ApiError } from '../lib/api-client';
 import { generateImages as apiGenerateImages, isAbortError } from '../lib/api/image-generation';
+import { ApiError } from '../lib/api-client';
 import { base64ToBlobUrl, extractBlobUrlsFromItems, revokeBlobUrls } from '../lib/utils/blobUrl';
 
 // Helper functions

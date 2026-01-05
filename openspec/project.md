@@ -2,7 +2,7 @@
 
 ## Purpose
 
-DALL-E 3 Web UI is a decoupled web application that provides a modern, user-friendly interface for generating images using OpenAI's DALL-E 3 API (and compatible services like OpenRouter). The project enables users to:
+OpenDia is a decoupled web application that provides a modern, user-friendly interface for generating images using OpenAI's DALL-E 3 API (and compatible services like OpenRouter). The project enables users to:
 
 - Input text prompts with real-time character validation (4000 char limit)
 - Configure generation parameters (model, quality, size, style)
@@ -134,7 +134,7 @@ DALL-E 3 Web UI is a decoupled web application that provides a modern, user-frie
 
 ### Image Generation
 - **Primary Model**: DALL-E 3 (default)
-- **Alternative Models**: GPT Image 1.5, OpenRouter-compatible models
+- **Alternative Models**: DALL-E 2, GPT Image 1.5, OpenRouter-compatible models (Seedream 4.5)
 - **DALL-E 3 Constraints**:
   - Only supports `n=1` (single image per request)
   - Default size: 1024x1024 (square)
@@ -142,6 +142,13 @@ DALL-E 3 Web UI is a decoupled web application that provides a modern, user-frie
   - Quality options: standard, hd
   - Style options: vivid (hyper-realistic), natural (more subtle)
   - Size options: 1024x1024, 1024x1792, 1792x1024
+- **DALL-E 2 Constraints**:
+  - Supports `n=1` to `n=10` (multiple images per request)
+  - Default size: 1024x1024 (square)
+  - Prompt limit: 1000 characters (enforced at UI level)
+  - Quality options: standard only
+  - No style option (not supported by API)
+  - Size options: 256x256, 512x512, 1024x1024
 - **GPT Image 1.5 Capabilities**:
   - Supports `n=1` to `n=10` (multiple images per request)
   - Default size: auto
@@ -151,6 +158,14 @@ DALL-E 3 Web UI is a decoupled web application that provides a modern, user-frie
   - Background options: auto, transparent, opaque
   - Size options: auto, 1024x1024, 1536x1024, 1024x1536
   - Always returns base64-encoded images (b64_json)
+- **Seedream 4.5 Capabilities (OpenRouter)**:
+  - Supports `n=1` to `n=6` (multiple images per request)
+  - Default size: 2048x2048 (square XXL)
+  - Prompt limit: 4096 characters (enforced at UI level)
+  - Quality options: standard, high
+  - Size options: 1024x1024, 1536x1536, 2048x2048, 1024x1536, 1536x1024, 1024x2048, 2048x1024
+  - Always returns base64-encoded images (b64_json)
+  - Accessed via OpenRouter API (`https://openrouter.ai/api/v1`)
 
 ### Image Formats
 - **Generation**: Returns URL or base64 JSON from OpenAI
@@ -178,8 +193,8 @@ DALL-E 3 Web UI is a decoupled web application that provides a modern, user-frie
 - **Node.js Version**: Requires >= 24.0.0
 - **TypeScript Strict Mode**: Cannot be disabled; all code must type-check
 - **API Key Required**: `OPENAI_API_KEY` must be set in `.env`
-- **Prompt Length**: Model-specific limits (4000 for DALL-E 3, 32000 for GPT Image 1.5)
-- **Image Count**: Model-specific limits (1 for DALL-E 3, 10 for GPT Image 1.5)
+- **Prompt Length**: Model-specific limits (1000 for DALL-E 2, 4000 for DALL-E 3, 32000 for GPT Image 1.5, 4096 for Seedream 4.5)
+- **Image Count**: Model-specific limits (10 for DALL-E 2, 1 for DALL-E 3, 10 for GPT Image 1.5, 6 for Seedream 4.5)
 
 ### API Constraints
 - **OpenAI Rate Limits**: Subject to OpenAI API rate limiting
@@ -204,6 +219,8 @@ DALL-E 3 Web UI is a decoupled web application that provides a modern, user-frie
   - SDK: `openai@6.15.0`
 - **OpenRouter** (optional): Alternative API endpoint
   - Configurable via `OPENAI_BASE_URL` environment variable
+  - Supports Seedream 4.5 and other compatible models
+  - Uses direct axios HTTP calls for integration
 
 ### NPM Dependencies
 See `package.json` for complete list. Key dependencies:

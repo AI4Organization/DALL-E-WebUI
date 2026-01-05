@@ -23,11 +23,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-DALL-E 3 Web UI is a **decoupled frontend/backend application** that provides a web interface for generating images using OpenAI's DALL-E 3, DALL-E 2, and GPT Image 1.5 APIs. It allows users to input prompts, configure generation parameters (quality, size, style, output format, background), and download generated images in various formats.
+OpenDia is a **decoupled frontend/backend application** that provides a web interface for generating images using OpenAI's DALL-E 3, DALL-E 2, GPT Image 1.5, and OpenRouter APIs (including Seedream 4.5). It allows users to input prompts, configure generation parameters (quality, size, style, output format, background), and download generated images in various formats.
 
 **Architecture**:
 - **Frontend**: Rsbuild (Rspack-based) SPA with React 19
 - **Backend**: Express.js TypeScript API server
+
+**Supported Models**:
+- **DALL-E 3**: OpenAI's latest image generation model
+- **DALL-E 2**: OpenAI's previous generation model
+- **GPT Image 1.5**: OpenAI's improved image generation model
+- **Seedream 4.5**: Bytedance's image model (via OpenRouter)
 
 **Note**: This codebase has been fully migrated to TypeScript (strict mode) and uses Ant Design for UI components with a custom dark/light theme system.
 
@@ -258,6 +264,9 @@ type GPTImageQuality = 'auto' | 'high' | 'medium' | 'low';
 type GPTImageOutputFormat = 'png' | 'jpeg' | 'webp';
 type GPTImageBackground = 'auto' | 'transparent' | 'opaque';
 
+// Image generation - Seedream 4.5
+type SeedreamQuality = 'standard' | 'high';
+
 // Universal output format for all models
 type ImageOutputFormat = 'webp' | 'png' | 'jpeg';
 
@@ -270,7 +279,11 @@ type ImageSize =
   | '1792x1024'    // DALL-E 3 landscape
   | 'auto'         // GPT Image 1.5 auto size
   | '1536x1024'    // GPT Image 1.5 landscape
-  | '1024x1536';   // GPT Image 1.5 portrait
+  | '1024x1536'    // GPT Image 1.5 portrait
+  | '1536x1536'    // Seedream 4.5 square XL
+  | '2048x2048'    // Seedream 4.5 square XXL
+  | '1024x2048'    // Seedream 4.5 portrait XL
+  | '2048x1024';   // Seedream 4.5 landscape XL
 
 // API responses
 interface ImagesApiResponse { result: OpenAIImageResult[]; }
@@ -312,6 +325,16 @@ interface ConfigApiResponse { availableModels: ModelOption[]; baseURL: string; }
 - Sizes: auto, 1024x1024 (square), 1536x1024 (landscape), 1024x1536 (portrait)
 - Always returns base64-encoded images (b64_json)
 
+**Seedream 4.5 (OpenRouter):**
+- Supports `n=1` to `n=6` (multiple images per request)
+- Prompt character limit: **4096 characters**
+- Quality options: standard, high
+- Sizes: 1024x1024, 1536x1536, 2048x2048, 1024x1536, 1536x1024, 1024x2048, 2048x1024
+- Default size: "2048x2048" (Square XXL)
+- Always returns base64-encoded images (b64_json)
+- Accessed via OpenRouter API (`https://openrouter.ai/api/v1`)
+- Model ID: `bytedance-seed/seedream-4.5`
+
 ### General Notes
 - TypeScript strict mode catches potential null/undefined issues at compile time
 - The app supports multiple base URLs (OpenAI API and OpenRouter)
@@ -343,8 +366,8 @@ interface ConfigApiResponse { availableModels: ModelOption[]; baseURL: string; }
 - Dark/light theme toggle with animated sun/moon icons in the top-right corner
 - Theme preference is saved to localStorage and persists across sessions
 - System preference detection sets initial theme based on user's OS setting
-- Prompt character limit is dynamic based on selected model (1000 for DALL-E 2, 4000 for DALL-E 3, 32000 for GPT Image 1.5)
-- Image count limit is dynamic based on selected model (10 for DALL-E 2, 10 for DALL-E 3 via parallel requests, 10 for GPT Image 1.5)
+- Prompt character limit is dynamic based on selected model (1000 for DALL-E 2, 4000 for DALL-E 3, 32000 for GPT Image 1.5, 4096 for Seedream 4.5)
+- Image count limit is dynamic based on selected model (10 for DALL-E 2, 10 for DALL-E 3 via parallel requests, 10 for GPT Image 1.5, 6 for Seedream 4.5)
 - Quality dropdown shows for all models, but DALL-E 2 only has "standard" option (parameter not sent to API)
 - Auto-resize textarea expands as user types (up to 400px height)
 - Floating animated blob backgrounds with gradient colors

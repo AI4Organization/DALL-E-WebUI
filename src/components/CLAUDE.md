@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with Re
 
 ## Purpose
 
-This directory contains reusable React components for the DALL-E 3 Web UI. All components use TypeScript strict mode and integrate with Ant Design for styling.
+This directory contains reusable React components for the OpenDia. All components use TypeScript strict mode and integrate with Ant Design for styling.
 
 ## Components Overview
 

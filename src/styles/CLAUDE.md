@@ -1,6 +1,6 @@
 # CLAUDE.md - styles/
 
-This directory contains global CSS styles and Tailwind CSS configuration for the DALL-E 3 Web UI application.
+This directory contains global CSS styles and Tailwind CSS configuration for the OpenDia application.
 
 ## Structure
 

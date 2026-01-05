@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with en
 
 ## Purpose
 
-This directory contains Playwright end-to-end tests for the DALL-E 3 Web UI. E2E tests verify the entire application flow from the user's perspective, testing real browser interactions.
+This directory contains Playwright end-to-end tests for the OpenDia. E2E tests verify the entire application flow from the user's perspective, testing real browser interactions.
 
 ## Test Configuration
 

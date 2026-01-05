@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with Re
 
 ## Purpose
 
-This directory contains React context providers that manage global state for the DALL-E 3 Web UI. Contexts provide a way to share state between components without prop drilling.
+This directory contains React context providers that manage global state for the OpenDia. Contexts provide a way to share state between components without prop drilling.
 
 **Note:** The project now uses Zustand (`src/stores/useImageStore.ts`) as the primary state management solution. The contexts in this directory may be used for legacy compatibility or specific use cases where React Context is preferred over Zustand.
 

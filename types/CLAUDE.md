@@ -73,6 +73,16 @@ type GPTImageQuality = 'auto' | 'high' | 'medium' | 'low';
 - **medium**: Medium quality
 - **low**: Lowest quality
 
+#### `SeedreamQuality`
+Quality setting for Seedream 4.5 image generation.
+
+```typescript
+type SeedreamQuality = 'standard' | 'high';
+```
+
+- **standard**: Standard quality generation
+- **high**: High quality generation
+
 #### `GPTImageOutputFormat`
 Output format setting for GPT Image 1.5 (API-supported formats).
 
@@ -115,13 +125,19 @@ type ImageSize =
   // GPT Image 1.5 sizes
   | 'auto'       // Automatic size
   | '1536x1024'  // Landscape
-  | '1024x1536'; // Portrait
+  | '1024x1536'  // Portrait
+  // Seedream 4.5 sizes
+  | '1536x1536'  // Square XL
+  | '2048x2048'  // Square XXL
+  | '1024x2048'  // Portrait XL
+  | '2048x1024'; // Landscape XL
 ```
 
 **Model Support:**
 - DALL-E 2: All square sizes (256x256, 512x512, 1024x1024)
 - DALL-E 3: Square (1024x1024) and rectangular sizes (1024x1792, 1792x1024)
 - GPT Image 1.5: All sizes (auto, 1024x1024, 1536x1024, 1024x1536)
+- Seedream 4.5: All sizes except auto, 256x256, 512x512, 1024x1792, 1792x1024, 1024x1536, 1536x1024
 
 #### `ImageStyle`
 Style preset for DALL-E 3.
@@ -176,6 +192,9 @@ const DALL_E_3_SIZES: readonly ImageSize[];
 
 const GPT_IMAGE_1_5_SIZES: readonly ImageSize[];
 // ['auto', '1024x1024', '1536x1024', '1024x1536']
+
+const SEEDREAM_4_5_SIZES: readonly ImageSize[];
+// ['1024x1024', '1536x1536', '2048x2048', '1024x1536', '1536x1024', '1024x2048', '2048x1024']
 ```
 
 ---
@@ -366,6 +385,19 @@ const quality: GPTImageQuality = 'high'; // Valid: auto, high, medium, low
 const outputFormat: GPTImageOutputFormat = 'png'; // Valid: png, jpeg, webp
 const background: GPTImageBackground = 'transparent'; // Valid: auto, transparent, opaque
 ```
+
+### Seedream 4.5 (OpenRouter)
+```typescript
+import type {
+  ImageSize,
+  SeedreamQuality
+} from '../../types';
+
+const size: ImageSize = '2048x2048'; // Valid: 1024x1024, 1536x1536, 2048x2048, 1024x1536, 1536x1024, 1024x2048, 2048x1024
+const quality: SeedreamQuality = 'high'; // Valid: standard, high
+```
+
+**Note:** Seedream 4.5 is accessed via OpenRouter API (`https://openrouter.ai/api/v1`) using model ID `bytedance-seed/seedream-4.5`.
 
 ## Type Safety Notes
 

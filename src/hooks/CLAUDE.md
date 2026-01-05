@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with Re
 
 ## Purpose
 
-This directory contains custom React hooks that encapsulate reusable stateful logic for the DALL-E 3 Web UI. All hooks use TypeScript strict mode.
+This directory contains custom React hooks that encapsulate reusable stateful logic for the OpenDia. All hooks use TypeScript strict mode.
 
 ## Hooks Overview
 

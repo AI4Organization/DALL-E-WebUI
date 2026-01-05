@@ -37,7 +37,7 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 
 **Model Options:**
 - **OpenAI**: DALL-E 2, DALL-E 3, GPT Image 1.5
-- **OpenRouter**: GLM-4.6v (Z-AI), Grok-4.1-Fast (X-AI)
+- **OpenRouter**: Seedream 4.5, GLM-4.6v (Z-AI), Grok-4.1-Fast (X-AI)
 
 ---
 
@@ -45,7 +45,7 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 
 **Endpoint:** `POST /api/images`
 
-**Purpose:** Generates images using OpenAI's DALL-E 3, DALL-E 2, and GPT Image 1.5 APIs.
+**Purpose:** Generates images using OpenAI's DALL-E 3, DALL-E 2, GPT Image 1.5, and OpenRouter APIs (including Seedream 4.5).
 
 **Request Query Parameters:**
 ```typescript
@@ -80,37 +80,40 @@ This directory contains Express.js route handlers for all API endpoints. Each ro
 
 **Key Features:**
 - Validates input parameters using `server/lib/validation.ts`
-- Handles DALL-E 2, DALL-E 3, and GPT Image 1.5
-- Supports OpenRouter API
-- Returns image URLs (DALL-E 2, DALL-E 3) or base64 data (GPT Image 1.5)
+- Handles DALL-E 2, DALL-E 3, GPT Image 1.5, and OpenRouter models (Seedream 4.5)
+- Supports OpenRouter API with direct axios calls for non-OpenAI models
+- Returns image URLs (DALL-E 2, DALL-E 3) or base64 data (GPT Image 1.5, Seedream 4.5)
 - Comprehensive error handling for API failures
+- Debug logging for OpenRouter integration (`openrouter-debug.log`)
 - Quality parameter is only sent to API for DALL-E 3 and GPT Image 1.5 (DALL-E 2 ignores it)
 
 **Note:** All parameters are passed as query parameters in the URL, not in the request body.
 
 **Model-Specific Behavior:**
 
-| Feature | DALL-E 2 | DALL-E 3 | GPT Image 1.5 |
-|---------|----------|----------|---------------|
-| Max images (per request) | 10 | 1 | 10 |
-| Max images (via parallel requests) | N/A | 10 (via 4 concurrent requests) | N/A |
-| Prompt limit | 1000 chars | 4000 chars | 32000 chars |
-| Return format | `url` | `url` | `b64_json` (base64) |
-| Quality options | N/A (API ignores) | standard, hd | auto, high, medium, low |
-| Style options | Not supported | vivid, natural | Not supported |
-| Sizes | 256x256, 512x512, 1024x1024 | 1024x1024, 1024x1792, 1792x1024 | auto, 1024x1024, 1536x1024, 1024x1536 |
-| Output format | N/A | N/A | png, jpeg, webp |
-| Background | N/A | N/A | auto, transparent, opaque |
+| Feature | DALL-E 2 | DALL-E 3 | GPT Image 1.5 | Seedream 4.5 (OpenRouter) |
+|---------|----------|----------|---------------|---------------------------|
+| Max images (per request) | 10 | 1 | 10 | 6 |
+| Max images (via parallel requests) | N/A | 10 (via 4 concurrent requests) | N/A | N/A |
+| Prompt limit | 1000 chars | 4000 chars | 32000 chars | 4096 chars |
+| Return format | `url` | `url` | `b64_json` (base64) | `b64_json` (base64) |
+| Quality options | N/A (API ignores) | standard, hd | auto, high, medium, low | standard, high |
+| Style options | Not supported | vivid, natural | Not supported | Not supported |
+| Sizes | 256x256, 512x512, 1024x1024 | 1024x1024, 1024x1792, 1792x1024 | auto, 1024x1024, 1536x1024, 1024x1536 | 1024x1024, 1536x1536, 2048x2048, 1024x1536, 1536x1024, 1024x2048, 2048x1024 |
+| Output format | N/A | N/A | png, jpeg, webp | N/A |
+| Background | N/A | N/A | auto, transparent, opaque | N/A |
 
 **Validation Rules:**
 - DALL-E 3 API only supports `n=1` per request, but frontend makes parallel requests for multiple images
 - DALL-E 2 supports `n=1` to `n=10` in a single API request
 - GPT Image 1.5 supports `n=1` to `n=10` in a single API request
+- Seedream 4.5 supports `n=1` to `n=6` in a single API request
 - Style is **required** for DALL-E 3
 - Size validation per model
 - Quality/Style only for DALL-E 3
 - Quality parameter not sent to API for DALL-E 2 (API ignores it)
 - Output format/Background only for GPT Image 1.5
+- OpenRouter models use direct axios calls (not OpenAI SDK)
 
 **Error Handling:**
 
