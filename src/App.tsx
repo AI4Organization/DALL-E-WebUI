@@ -44,7 +44,7 @@ declare const process: { env: { API_BASE_URL: string } };
 // ============ Constants ============
 
 const isSizeValidForModel = (size: ImageSize, modelName: string | null): boolean => {
-  if (modelName === 'gpt-image-1.5-2025-12-16') {
+  if (modelName === 'gpt-image-1.5') {
     return GPT_IMAGE_1_5_SIZES.includes(size);
   }
   if (modelName === 'dall-e-2') {
@@ -54,7 +54,7 @@ const isSizeValidForModel = (size: ImageSize, modelName: string | null): boolean
 };
 
 const getDefaultSizeForModel = (modelName: string | null): ImageSize => {
-  if (modelName === 'gpt-image-1.5-2025-12-16') {
+  if (modelName === 'gpt-image-1.5') {
     return GPT_IMAGE_1_5_SIZES[2]!; // '1536x1024' (Landscape)
   }
   if (modelName === 'dall-e-3') {
@@ -66,7 +66,7 @@ const getDefaultSizeForModel = (modelName: string | null): ImageSize => {
 
 // Helper function to get prompt limit for model
 const getPromptLimit = (modelName: string | null): number => {
-  if (modelName === 'gpt-image-1.5-2025-12-16') return 32000;
+  if (modelName === 'gpt-image-1.5') return 32000;
   if (modelName === 'dall-e-3') return 4000;
   if (modelName === 'dall-e-2') return 1000;
   return 4000; // Default
@@ -76,7 +76,7 @@ const getPromptLimit = (modelName: string | null): number => {
 // Note: For DALL-E 3, we allow up to 10 images but handle via parallel requests
 // since the API only supports n=1 per request
 const getMaxImages = (modelName: string | null): number => {
-  if (modelName === 'gpt-image-1.5-2025-12-16') return 10;
+  if (modelName === 'gpt-image-1.5') return 10;
   if (modelName === 'dall-e-3') return 10; // Allow up to 10 via parallel requests
   if (modelName === 'dall-e-2') return 10;
   return 10; // Default
@@ -229,7 +229,7 @@ export default function App(): React.ReactElement {
   }, [model, size, setSize]);
 
   useEffect(() => {
-    if (model === 'gpt-image-1.5-2025-12-16') {
+    if (model === 'gpt-image-1.5') {
       setQuality('low');
     } else if (model === 'dall-e-2') {
       setQuality('standard');
@@ -243,10 +243,10 @@ export default function App(): React.ReactElement {
       try {
         const res = await axios.get(`${process.env.API_BASE_URL}/api/config`);
 
-        // Sort models by priority: dall-e-3, gpt-image-1.5-2025-12-16, dall-e-2, then others alphabetically
+        // Sort models by priority: dall-e-3, gpt-image-1.5, dall-e-2, then others alphabetically
         const modelPriority: Record<string, number> = {
           'dall-e-3': 1,
-          'gpt-image-1.5-2025-12-16': 2,
+          'gpt-image-1.5': 2,
           'dall-e-2': 3,
         };
 
@@ -368,7 +368,7 @@ export default function App(): React.ReactElement {
       hasErrors = true;
     }
 
-    if (model === 'gpt-image-1.5-2025-12-16' && !GPT_IMAGE_1_5_SIZES.includes(size)) {
+    if (model === 'gpt-image-1.5' && !GPT_IMAGE_1_5_SIZES.includes(size)) {
       toast.error('Invalid Size for GPT Image 1.5', {
         description: `The size "${size}" is not supported by GPT Image 1.5. Choose a supported size: auto, 1024x1024, 1536x1024, or 1024x1536.`,
       });
@@ -387,7 +387,7 @@ export default function App(): React.ReactElement {
       });
     }
 
-    if (model === 'gpt-image-1.5-2025-12-16' && number > 1) {
+    if (model === 'gpt-image-1.5' && number > 1) {
       toast.info(`Multiple Images with GPT Image 1.5`, {
         description: `You requested ${number} images. We'll generate them in a single request and show all results together. GPT Image 1.5 supports multiple images in one request for faster generation.`,
       });
@@ -418,7 +418,7 @@ export default function App(): React.ReactElement {
       });
 
       // Add quality for DALL-E 3 and GPT Image 1.5 (DALL-E 2 doesn't support it)
-      if (model === 'dall-e-3' || model === 'gpt-image-1.5-2025-12-16') {
+      if (model === 'dall-e-3' || model === 'gpt-image-1.5') {
         queryParams.append('q', quality);
       }
 
@@ -426,7 +426,7 @@ export default function App(): React.ReactElement {
         queryParams.append('st', style);
       }
 
-      if (model === 'gpt-image-1.5-2025-12-16') {
+      if (model === 'gpt-image-1.5') {
         queryParams.append('of', outputFormat);
         queryParams.append('bg', background);
       }
@@ -455,14 +455,14 @@ export default function App(): React.ReactElement {
     try {
       // For GPT Image 1.5 with n > 1, we can use a single request
       // For DALL-E 3, use parallel execution (one request per image)
-      if (model === 'gpt-image-1.5-2025-12-16' && number > 1) {
+      if (model === 'gpt-image-1.5' && number > 1) {
         // GPT Image 1.5 supports n > 1 in a single request
         const queryParams = new URLSearchParams({
           p: encodeURIComponent(prompt),
           n: String(number),
           q: quality,
           s: size,
-          m: 'gpt-image-1.5-2025-12-16',
+          m: 'gpt-image-1.5',
           of: outputFormat,
           bg: background,
         });
@@ -575,7 +575,7 @@ export default function App(): React.ReactElement {
       });
 
       // Add quality for DALL-E 3 and GPT Image 1.5 (DALL-E 2 doesn't support it)
-      if (model === 'dall-e-3' || model === 'gpt-image-1.5-2025-12-16') {
+      if (model === 'dall-e-3' || model === 'gpt-image-1.5') {
         queryParams.append('q', quality);
       }
 
@@ -583,7 +583,7 @@ export default function App(): React.ReactElement {
         queryParams.append('st', style);
       }
 
-      if (model === 'gpt-image-1.5-2025-12-16') {
+      if (model === 'gpt-image-1.5') {
         queryParams.append('of', outputFormat);
         queryParams.append('bg', background);
       }

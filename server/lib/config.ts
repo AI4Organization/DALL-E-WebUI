@@ -7,7 +7,7 @@ const BASE_URL_MODELS: Record<string, ModelOption[]> = {
   'https://api.openai.com/v1': [
     { value: 'dall-e-3', label: 'DALL-E 3' },
     { value: 'dall-e-2', label: 'DALL-E 2' },
-    { value: 'gpt-image-1.5-2025-12-16', label: 'GPT Image 1.5' }
+    { value: 'gpt-image-1.5', label: 'GPT Image 1.5' }
   ],
   'https://openrouter.ai/api/v1': [
     { value: 'z-ai/glm-4.6v', label: 'GLM-4.6v (Z-AI)' },
