@@ -42,7 +42,7 @@ export const PromptInputSection = memo<PromptInputSectionProps>(({
       whileFocus={{ scale: 1.01 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
     >
-      <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+      <label className="block text-sm font-medium text-gray-300 mb-2 items-center gap-2">
         <PictureOutlined className="text-accent-purple" />
         Your Prompt
       </label>
@@ -58,7 +58,9 @@ export const PromptInputSection = memo<PromptInputSectionProps>(({
       />
       {/* Custom character count display */}
       <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-gray-500">
-        <span>{prompt.length} / {maxLength} characters</span>
+        <span>
+          {prompt.length} / {maxLength} characters
+        </span>
         <StarOutlined className="text-accent-cyan ml-2" />
       </div>
     </motion.div>

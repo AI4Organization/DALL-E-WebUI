@@ -242,7 +242,24 @@ export default function App(): React.ReactElement {
     const fetchConfig = async (): Promise<void> => {
       try {
         const res = await axios.get(`${process.env.API_BASE_URL}/api/config`);
-        setAvailableModels(res.data.availableModels);
+
+        // Sort models by priority: dall-e-3, gpt-image-1.5, dall-e-2, then others alphabetically
+        const modelPriority: Record<string, number> = {
+          'dall-e-3': 1,
+          'gpt-image-1.5': 2,
+          'dall-e-2': 3,
+        };
+
+        const sortedModels = [...res.data.availableModels].sort((a, b) => {
+          const priorityA = modelPriority[a.value] ?? 999;
+          const priorityB = modelPriority[b.value] ?? 999;
+          if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+          }
+          return a.label.localeCompare(b.label);
+        });
+
+        setAvailableModels(sortedModels);
         setConfigLoading(false);
       } catch (err) {
         const axiosError = err as {

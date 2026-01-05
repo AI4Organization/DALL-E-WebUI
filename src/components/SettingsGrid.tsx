@@ -72,8 +72,8 @@ interface SelectLabelProps {
 
 function SelectLabel({ label, tooltip }: SelectLabelProps) {
   return (
-    <label className="block text-sm font-medium text-gray-300 mb-2 items-center gap-2">
-      {label}
+    <label className="block text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+      <span>{label}</span>
       {tooltip && (
         <Tooltip title={tooltip}>
           <InfoCircleOutlined className="text-accent-cyan cursor-help" />
@@ -83,13 +83,13 @@ function SelectLabel({ label, tooltip }: SelectLabelProps) {
   );
 }
 
-interface DisabledControlProps<T extends object> {
+interface DisabledControlProps {
   disabled: boolean;
   disabledReason?: string;
-  children: React.ReactElement<T>;
+  children: React.ReactElement;
 }
 
-function DisabledControl<T extends object>({ disabled, disabledReason, children }: DisabledControlProps<T>) {
+function DisabledControl({ disabled, disabledReason, children }: DisabledControlProps) {
   const newProps = { ...(children.props ?? {}), disabled };
   if (disabled && disabledReason) {
     return (
