@@ -450,18 +450,32 @@ export default function App(): React.ReactElement {
           bg: background,
         });
 
-        const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
-        const results = res.data.result || [];
+        try {
+          const res = await axios.post(`${process.env.API_BASE_URL}/api/images?${queryParams}`);
+          const results = res.data.result || [];
 
-        // Update all items with results
-        const updatedItems = results.map((result: OpenAIImageResult, i: number) => ({
-          id: i,
-          status: 'success' as ImageGenerationStatus,
-          result,
-        }));
+          // Update all items with results
+          const updatedItems = results.map((result: OpenAIImageResult, i: number) => ({
+            id: i,
+            status: 'success' as ImageGenerationStatus,
+            result,
+          }));
 
-        setGenerationItems(updatedItems);
-        toast.success(`${results.length} image${results.length !== 1 ? 's' : ''} generated!`);
+          setGenerationItems(updatedItems);
+          toast.success(`${results.length} image${results.length !== 1 ? 's' : ''} generated!`);
+        } catch (err) {
+          console.error(`${model} batch generation error:`, err);
+          const errorMessage = getApiErrorMessage(err);
+
+          // Update all items to error status
+          const errorItems = initialItems.map((item) => ({
+            ...item,
+            status: 'error' as ImageGenerationStatus,
+            error: errorMessage,
+          }));
+          setGenerationItems(errorItems);
+          toast.error(`Batch generation failed: ${errorMessage}`);
+        }
       } else {
         // DALL-E 3 and DALL-E 2: Make parallel requests (one per image)
         const tasks = Array.from({ length: number }, (_, i) => limit(() => generateSingleImage(i)));
