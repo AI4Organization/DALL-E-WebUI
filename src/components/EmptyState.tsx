@@ -121,9 +121,9 @@ export const EmptyState = memo<EmptyStateProps>(function EmptyState({ variants }
       { animate: { y: [0, -10, 10, 0], opacity: [0.3, 0.5, 0.5, 0.3] }, transition: { duration: 3, repeat: Infinity } },
     ],
     4: [ // Bounce & Elastic
-      { animate: { y: [0, -30, 0, -15, 0], scale: [1, 1.2, 0.9, 1.1, 1] }, transition: { duration: 2, repeat: Infinity, type: 'spring', stiffness: 300 } },
-      { animate: { y: [0, -25, 0, -12, 0], scale: [1, 1.15, 0.95, 1.05, 1] }, transition: { duration: 2.2, repeat: Infinity, type: 'spring', stiffness: 300 } },
-      { animate: { y: [0, -20, 0, -10, 0], scale: [1, 1.1, 0.95, 1.05, 1] }, transition: { duration: 1.8, repeat: Infinity, type: 'spring', stiffness: 300 } },
+      { animate: { y: [0, -30, 0, -15, 0], scale: [1, 1.2, 0.9, 1.1, 1] }, transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' } },
+      { animate: { y: [0, -25, 0, -12, 0], scale: [1, 1.15, 0.95, 1.05, 1] }, transition: { duration: 2.2, repeat: Infinity, ease: 'easeInOut' } },
+      { animate: { y: [0, -20, 0, -10, 0], scale: [1, 1.1, 0.95, 1.05, 1] }, transition: { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } },
     ],
   }), []);
 
@@ -155,7 +155,7 @@ export const EmptyState = memo<EmptyStateProps>(function EmptyState({ variants }
     },
     4: { // Bounce & Elastic
       animate: { y: [0, -20, 0] },
-      transition: { duration: 1.5, repeat: Infinity, type: 'spring', stiffness: 400, damping: 10 },
+      transition: { duration: 1.5, repeat: Infinity, ease: 'easeInOut' },
       className: '',
       style: undefined,
     },
