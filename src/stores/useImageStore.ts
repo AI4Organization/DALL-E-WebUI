@@ -109,7 +109,7 @@ export const useImageStore = create<ImageStoreState>()(
       // === Initial State ===
       model: 'dall-e-3',
       prompt: '',
-      number: 2,
+      number: 1,
       quality: 'hd' as ImageQuality,
       size: '1792x1024' as ImageSize,
       style: 'vivid' as ImageStyle,

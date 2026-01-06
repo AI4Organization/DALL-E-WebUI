@@ -17,6 +17,7 @@ import { DALL_E_2_SIZES, DALL_E_3_SIZES, GPT_IMAGE_1_5_SIZES, SEEDREAM_4_5_SIZES
 
 import { EmptyState } from './components/EmptyState';
 import { ImageResultsGrid } from './components/ImageResultsGrid';
+import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { PromptInputSection } from './components/PromptInputSection';
 import { SettingsGrid } from './components/SettingsGrid';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -35,6 +36,15 @@ const LazyPreviewModal = lazy(() =>
 declare const process: { env: { API_BASE_URL: string } };
 
 // ============ Constants ============
+
+const QUICK_PROMPTS = [
+  { emoji: '🌅', text: 'A futuristic city at sunset' },
+  { emoji: '🐱', text: 'A cute cat wearing sunglasses' },
+  { emoji: '🌌', text: 'A galaxy inside a crystal ball' },
+  { emoji: '🏰', text: 'A floating castle in the clouds' },
+];
+
+const WORDS = ['Breathtaking Images', 'Stunning Art', 'AI Magic', 'Dream Visuals'];
 
 const isSizeValidForModel = (size: ImageSize, modelName: string | null): boolean => {
   if (modelName === 'bytedance-seed/seedream-4.5') {
@@ -149,6 +159,90 @@ const FloatingBlob: React.FC<{ className?: string; color: string; delay?: number
   />
 );
 
+// ============ Typing Headline Component ============
+const TypingHeadline: React.FC = () => {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => setIndex((i) => (i + 1) % WORDS.length), 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.span
+        key={WORDS[index]}
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: -20, opacity: 0 }}
+        transition={{ duration: 0.5 }}
+        className="gradient-text"
+      >
+        {WORDS[index]}
+      </motion.span>
+    </AnimatePresence>
+  );
+};
+
+// ============ Quick Prompt Chips Component ============
+interface QuickPromptChipsProps {
+  onPromptClick: (text: string) => void;
+}
+
+const QuickPromptChips: React.FC<QuickPromptChipsProps> = ({ onPromptClick }) => (
+  <div className="flex flex-wrap justify-center gap-3 mt-6">
+    {QUICK_PROMPTS.map((prompt, i) => (
+      <motion.button
+        key={i}
+        type="button"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 + i * 0.1 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => onPromptClick(prompt.text)}
+        className="px-4 py-2 rounded-full glass-card flex items-center gap-2
+                   hover:border-accent-purple/50 transition-colors cursor-pointer"
+      >
+        <span className="text-lg">{prompt.emoji}</span>
+        <span className="text-sm text-gray-300">{prompt.text}</span>
+      </motion.button>
+    ))}
+  </div>
+);
+
+// ============ Particle Burst Component ============
+const ParticleBurst: React.FC<{ trigger: boolean }> = ({ trigger }) => {
+  const particles = Array.from({ length: 12 }, (_, i) => ({
+    id: i,
+    angle: (i * 30) * (Math.PI / 180),
+    distance: 50 + Math.random() * 30,
+  }));
+
+  return (
+    <AnimatePresence>
+      {trigger && particles.map((p) => (
+        <motion.div
+          key={p.id}
+          initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+          animate={{
+            x: Math.cos(p.angle) * p.distance,
+            y: Math.sin(p.angle) * p.distance,
+            opacity: 0,
+            scale: 0,
+          }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+          className="absolute w-2 h-2 rounded-full pointer-events-none"
+          style={{
+            background: ['#a855f7', '#ec4899', '#22d3d3'][p.id % 3],
+          }}
+        />
+      ))}
+    </AnimatePresence>
+  );
+};
+
 // ============ Main Component ============
 export default function App(): React.ReactElement {
   useTheme();
@@ -199,6 +293,7 @@ export default function App(): React.ReactElement {
   const [availableModels, setAvailableModels] = useState<ModelOption[]>([]);
   const [configLoading, setConfigLoading] = useState<boolean>(true);
   const [isGenerationInProgress, setIsGenerationInProgress] = useState<boolean>(false);
+  const [showParticles, setShowParticles] = useState<boolean>(false);
 
   // Zoom & Pan State (handled by useImagePreview hook in PreviewModal)
   const [, _setZoomLevel] = useState<number>(100); // 50% to 500%
@@ -714,16 +809,17 @@ export default function App(): React.ReactElement {
               style={{ fontFamily: "'Outfit', sans-serif" }}
             >
               <span className="text-white">Create </span>
-              <span className="gradient-text">Breathtaking</span>
+              <TypingHeadline />
               <br />
-              <span className="text-white">Images with </span>
-              <span className="gradient-text">GenAI</span>
+              <span className="text-white">with GenAI</span>
             </h1>
 
             <p className="text-lg text-gray-400 max-w-2xl mx-auto">
               Transform your ideas into stunning visuals with the power of artificial intelligence.
               Simply describe what you imagine, and watch the magic happen.
             </p>
+
+            <QuickPromptChips onPromptClick={setPrompt} />
           </motion.div>
 
           {/* Main Generator Card */}
@@ -775,12 +871,17 @@ export default function App(): React.ReactElement {
                 />
 
                 {/* Generate Button */}
-                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <motion.div className="relative" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <ParticleBurst trigger={showParticles} />
                   <Button
                     type="primary"
                     size="large"
                     icon={loading ? <LoadingOutlined /> : <PictureOutlined />}
-                    onClick={handleGenerate}
+                    onClick={() => {
+                      setShowParticles(true);
+                      setTimeout(() => setShowParticles(false), 600);
+                      handleGenerate();
+                    }}
                     loading={loading}
                     disabled={loading || configLoading}
                     block
@@ -791,9 +892,29 @@ export default function App(): React.ReactElement {
                       borderRadius: '4px',
                     }}
                   >
-                    {loading
-                      ? 'Generating Magic...'
-                      : `Generate ${number} Image${number !== 1 ? 's' : ''}`}
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <svg className="w-5 h-5 -rotate-90" viewBox="0 0 36 36">
+                          <path
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none"
+                            stroke="rgba(255,255,255,0.2)"
+                            strokeWidth="3"
+                          />
+                          <path
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none"
+                            stroke="#22d3d3"
+                            strokeWidth="3"
+                            strokeDasharray={`${(generationItems.filter((i) => i.status === 'success').length / number) * 100}, 100`}
+                            className="transition-all duration-300"
+                          />
+                        </svg>
+                        Generating Magic...
+                      </span>
+                    ) : (
+                      `Generate ${number} Image${number !== 1 ? 's' : ''}`
+                    )}
                   </Button>
                 </motion.div>
               </Space>
@@ -1004,6 +1125,9 @@ export default function App(): React.ReactElement {
           transform: translateZ(0); /* GPU hint */
         }
       `}</style>
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcuts />
     </>
   );
 }

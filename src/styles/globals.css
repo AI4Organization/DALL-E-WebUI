@@ -462,3 +462,66 @@ body:hover * {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* ===== New Animations for UI Refresh ===== */
+
+/* Perspective for 3D effects */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+/* Enhanced glass card with 3D effect */
+.glass-card-3d {
+  background-color: var(--color-card-bg);
+  backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--color-glass-border);
+  border-radius: var(--radius-card);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transform-style: preserve-3d;
+}
+
+/* Glow effect on hover */
+.glow-hover {
+  transition: all 0.3s ease;
+}
+
+.glow-hover:hover {
+  box-shadow:
+    0 0 20px rgba(168, 85, 247, 0.4),
+    0 0 40px rgba(168, 85, 247, 0.2),
+    0 10px 30px rgba(0, 0, 0, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Gentle floating animation */
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.float-gentle {
+  animation: float-gentle 4s ease-in-out infinite;
+}
+
+/* Pulse ring animation */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  animation: pulse-ring 1.5s ease-out infinite;
+}

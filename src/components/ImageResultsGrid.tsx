@@ -2,7 +2,6 @@ import {
   LoadingOutlined,
   DownloadOutlined,
   CloseCircleOutlined,
-  ZoomInOutlined,
   ReloadOutlined,
   StarOutlined,
   EyeOutlined,
@@ -21,6 +20,114 @@ import type {
   ImageGenerationItem,
   OpenAIImageResult,
 } from '../../types';
+
+// ============ Progress Bar Component ============
+const GenerationProgress = memo<{
+  completed: number;
+  total: number;
+  failed: number;
+}>(({ completed, total, failed }) => {
+  const percentage = (completed / total) * 100;
+  const isComplete = completed + failed >= total;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-center gap-4 p-4 rounded-xl glass-card mb-6"
+    >
+      {/* Circular progress */}
+      <div className="relative w-16 h-16 shrink-0">
+        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+          <path
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            fill="none"
+            stroke="rgba(255,255,255,0.1)"
+            strokeWidth="3"
+          />
+          <path
+            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+            fill="none"
+            stroke={isComplete ? '#22d3d3' : '#a855f7'}
+            strokeWidth="3"
+            strokeDasharray={`${percentage}, 100`}
+            className="transition-all duration-500"
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-lg font-bold text-white">
+            {isComplete ? '✓' : completed}
+          </span>
+        </div>
+      </div>
+
+      {/* Status text */}
+      <div className="flex-1">
+        <h4 className="text-white font-semibold">
+          {isComplete ? 'Generation Complete!' : 'Generating Images...'}
+        </h4>
+        <p className="text-sm text-gray-400">
+          {completed} of {total} images ready
+          {failed > 0 && ` • ${failed} failed`}
+        </p>
+      </div>
+
+      {/* Animated activity indicator */}
+      {!isComplete && (
+        <motion.div
+          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="w-3 h-3 rounded-full bg-accent-purple shrink-0"
+        />
+      )}
+    </motion.div>
+  );
+});
+GenerationProgress.displayName = 'GenerationProgress';
+
+// ============ Tilt Card Component ============
+const TiltCard = memo<{
+  children: React.ReactNode;
+  className?: string;
+}>(({ children, className }) => {
+  const [rotateX, setRotateX] = useState(0);
+  const [rotateY, setRotateY] = useState(0);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const rotateXValue = ((y - centerY) / centerY) * -5;
+    const rotateYValue = ((x - centerX) / centerX) * 5;
+    setRotateX(rotateXValue);
+    setRotateY(rotateYValue);
+  };
+
+  const handleMouseLeave = () => {
+    setRotateX(0);
+    setRotateY(0);
+  };
+
+  return (
+    <motion.div
+      style={{
+        rotateX,
+        rotateY,
+        transformStyle: 'preserve-3d',
+      }}
+      animate={{ rotateX, rotateY }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+});
+TiltCard.displayName = 'TiltCard';
 
 export interface ImageResultsGridProps {
   /** Array of image generation items */
@@ -104,6 +211,8 @@ const SuccessCard = memo<{
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [previewTooltipVisible, setPreviewTooltipVisible] = useState(false);
+  const [downloadTooltipVisible, setDownloadTooltipVisible] = useState(false);
 
   const handleDownload = async () => {
     if (!canDownload || isDownloading) return;
@@ -164,11 +273,16 @@ const SuccessCard = memo<{
         />
 
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-linear-to-t from-(--color-background) via-transparent to-transparent opacity-60 transition-opacity duration-300" />
+        <div
+          className="absolute inset-0 opacity-60 transition-opacity duration-300"
+          style={{
+            background: 'linear-gradient(to top, var(--color-background), transparent, transparent)',
+          }}
+        />
 
         {/* Download loading overlay */}
         {isDownloading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10">
+          <div className="absolute inset-0 flex items-center justify-center backdrop-blur-sm z-10" style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}>
             <motion.div
               className="flex flex-col items-center gap-3"
               initial={{ opacity: 0, scale: 0.8 }}
@@ -183,7 +297,7 @@ const SuccessCard = memo<{
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
               />
-              <span className="text-white text-sm font-medium" style={{ fontFamily: "'Outfit', sans-serif" }}>
+              <span className="text-sm font-medium" style={{ fontFamily: "'Outfit', sans-serif", color: 'var(--color-text-primary)' }}>
                 Downloading...
               </span>
             </motion.div>
@@ -192,49 +306,106 @@ const SuccessCard = memo<{
 
         {/* Image label at bottom */}
         <div className="absolute bottom-3 left-3">
-          <h4 className="text-white font-semibold text-sm" style={{ fontFamily: "'Outfit', sans-serif" }}>
+          <h4 className="text-primary font-semibold text-sm" style={{ fontFamily: "'Outfit', sans-serif" }}>
             Image #{id + 1}
           </h4>
         </div>
 
-        {/* Zoom icon on hover */}
-        <div className={`absolute inset-0 flex items-center justify-center transition-all duration-300 ${isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
-          <motion.div
-            className="bg-black/40 backdrop-blur-sm rounded-full p-4"
-            initial={{ scale: 0.8 }}
-            animate={{ scale: isHovered ? 1 : 0.8 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ZoomInOutlined className="text-white text-3xl" />
-          </motion.div>
-        </div>
-
-        {/* Download indicator */}
-        <div
-          className={`absolute top-3 left-3 flex items-center gap-2 bg-accent-purple/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-lg transition-all duration-300 ${isHovered ? 'scale-110' : 'scale-100'} ${!canDownload || isDownloading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            handleDownload();
+        {/* Enhanced Action Toolbar */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2
+                     px-3 py-2 rounded-full backdrop-blur-md z-10"
+          style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
           }}
         >
-          {isDownloading ? (
-            <>
-              <LoadingOutlined className="text-white text-sm animate-spin" />
-              <span className="text-white text-xs font-medium">Downloading...</span>
-            </>
-          ) : (
-            <>
-              <DownloadOutlined className="text-white text-sm" />
-              <span className="text-white text-xs font-medium">Download</span>
-            </>
-          )}
-        </div>
+          {/* Preview Button */}
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPreview();
+            }}
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-colors relative"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(168, 85, 247, 0.8)';
+              setPreviewTooltipVisible(true);
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              setPreviewTooltipVisible(false);
+            }}
+          >
+            <EyeOutlined style={{ color: 'var(--color-text-primary)' }} className="text-lg" />
+            <span
+              className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5
+                             rounded text-xs whitespace-nowrap transition-opacity duration-200 pointer-events-none"
+              style={{
+                opacity: previewTooltipVisible ? 1 : 0,
+                backgroundColor: 'var(--color-card-bg)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-glass-border)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+              }}
+            >
+              Preview
+            </span>
+          </motion.button>
 
-        {/* Eye indicator for preview */}
-        <div className={`absolute top-3 right-3 flex items-center gap-2 bg-emerald-500/90 backdrop-blur-md rounded-full px-3 py-1.5 shadow-lg transition-all duration-300 ${isHovered ? 'scale-110' : 'scale-100'}`}>
-          <EyeOutlined className="text-white text-sm" />
-          <span className="text-white text-xs font-medium">Preview</span>
-        </div>
+          {/* Download Button */}
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleDownload();
+            }}
+            disabled={!canDownload || isDownloading}
+            className="w-10 h-10 rounded-full flex items-center justify-center transition-colors relative"
+            style={{
+              backgroundColor: canDownload && !isDownloading ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+              opacity: canDownload && !isDownloading ? 1 : 0.5,
+              cursor: canDownload && !isDownloading ? 'pointer' : 'not-allowed',
+            }}
+            onMouseEnter={(e) => {
+              if (canDownload && !isDownloading) {
+                e.currentTarget.style.backgroundColor = 'rgba(168, 85, 247, 0.8)';
+                setDownloadTooltipVisible(true);
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (canDownload && !isDownloading) {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+              }
+              setDownloadTooltipVisible(false);
+            }}
+          >
+            {isDownloading ? (
+              <LoadingOutlined style={{ color: 'var(--color-text-primary)' }} className="text-lg animate-spin" />
+            ) : (
+              <DownloadOutlined style={{ color: 'var(--color-text-primary)' }} className="text-lg" />
+            )}
+            <span
+              className="absolute -top-10 left-1/2 -translate-x-1/2 px-3 py-1.5
+                             rounded text-xs whitespace-nowrap transition-opacity duration-200 pointer-events-none"
+              style={{
+                opacity: downloadTooltipVisible ? 1 : 0,
+                backgroundColor: 'var(--color-card-bg)',
+                color: 'var(--color-text-primary)',
+                border: '1px solid var(--color-glass-border)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+              }}
+            >
+              Download
+            </span>
+          </motion.button>
+        </motion.div>
 
         {/* Glow effect on hover */}
         <div
@@ -310,6 +481,15 @@ export const ImageResultsGrid = memo<ImageResultsGridProps>(({
       exit={{ opacity: 0 }}
       className="mb-8"
     >
+      {/* Visual Progress Bar */}
+      {inProgress && (
+        <GenerationProgress
+          completed={completedCount}
+          total={totalCount}
+          failed={failedCount}
+        />
+      )}
+
       {/* Progress Counter */}
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-2xl font-bold text-white flex items-center gap-3" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -326,7 +506,11 @@ export const ImageResultsGrid = memo<ImageResultsGridProps>(({
               key={`progress-${completedCount}-${failedCount}`}
               initial={{ scale: 0.9, opacity: 0.7 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="text-sm font-medium px-4 py-2 rounded-full bg-glass-light backdrop-blur-md border border-glass-border"
+              className="text-sm font-medium px-4 py-2 rounded-full backdrop-blur-md border"
+              style={{
+                backgroundColor: 'var(--color-glass-light)',
+                borderColor: 'var(--color-glass-border)',
+              }}
             >
               <span className="text-gray-300">
                 Generated: <span className="text-accent-cyan font-bold">{completedCount}</span>/{totalCount}
@@ -373,15 +557,17 @@ export const ImageResultsGrid = memo<ImageResultsGridProps>(({
                       onRetry={() => onRetry(item.id)}
                     />
                   ) : item.status === 'success' && item.result ? (
-                    <SuccessCard
-                      id={item.id}
-                      result={item.result}
-                      prompt={prompt}
-                      imageUrl={getDisplayUrl(item.result) || ''}
-                      canDownload={hasDownloadableImage(item.result)}
-                      onPreview={() => onPreview(item.result!, index)}
-                      onDownload={() => onDownload(getDisplayUrl(item.result!) || '')}
-                    />
+                    <TiltCard className="perspective-1000">
+                      <SuccessCard
+                        id={item.id}
+                        result={item.result}
+                        prompt={prompt}
+                        imageUrl={getDisplayUrl(item.result) || ''}
+                        canDownload={hasDownloadableImage(item.result)}
+                        onPreview={() => onPreview(item.result!, index)}
+                        onDownload={() => onDownload(getDisplayUrl(item.result!) || '')}
+                      />
+                    </TiltCard>
                   ) : null}
                 </motion.div>
               ))}
