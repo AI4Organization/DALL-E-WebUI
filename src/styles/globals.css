@@ -525,3 +525,87 @@ body:hover * {
   border: 2px solid currentColor;
   animation: pulse-ring 1.5s ease-out infinite;
 }
+
+/* ===== EmptyState Animation Keyframes ===== */
+
+/* Breathe & Glow - Pulse animation */
+@keyframes breathe-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.6;
+  }
+}
+
+/* Orbit animations */
+@keyframes orbit-clockwise {
+  0% {
+    transform: rotate(0deg) translateX(60px) rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg) translateX(60px) rotate(-360deg);
+  }
+}
+
+@keyframes orbit-counter {
+  0% {
+    transform: rotate(0deg) translateX(80px) rotate(0deg);
+  }
+  100% {
+    transform: rotate(-360deg) translateX(80px) rotate(360deg);
+  }
+}
+
+/* Wave motion */
+@keyframes wave-motion {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  25% {
+    transform: translateY(-10px);
+  }
+  75% {
+    transform: translateY(10px);
+  }
+}
+
+/* Elastic bounce */
+@keyframes elastic-bounce {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  30% {
+    transform: translateY(-20px) scale(1.1);
+  }
+  50% {
+    transform: translateY(0px) scale(0.95);
+  }
+  70% {
+    transform: translateY(-10px) scale(1.02);
+  }
+}
+
+/* Ripple expansion */
+@keyframes ripple-expand {
+  0% {
+    transform: scale(0) translate(-50%, -50%);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(3) translate(-50%, -50%);
+    opacity: 0;
+  }
+}
+
+/* Glow pulse */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(168, 85, 247, 0.8), 0 0 60px rgba(236, 72, 153, 0.4);
+  }
+}
