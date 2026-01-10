@@ -1,6 +1,6 @@
 {
   "name": "opendia",
-  "version": "3.0.10",
+  "version": "3.0.11",
   "description": "Images generator with GenAI",
   "author": "AI4Organization Engineers",
   "license": "MIT",
@@ -46,8 +46,8 @@
     ]
   },
   "dependencies": {
-    "@rsbuild/core": "^1.7.1",
-    "@rspack/core": "^1.7.0",
+    "@rsbuild/core": "^1.7.2",
+    "@rspack/core": "^1.7.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/react-window": "^2.0.0",
     "antd": "^6.1.4",
@@ -56,10 +56,10 @@
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
-    "framer-motion": "^12.23.27",
+    "framer-motion": "^12.25.0",
     "helmet": "^8.1.0",
     "morgan": "^1.10.1",
-    "openai": "^6.15.0",
+    "openai": "^6.16.0",
     "p-limit": "^7.2.0",
     "react": "19.2.3",
     "react-dom": "^19.2.3",
@@ -70,7 +70,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
-    "@eslint-react/eslint-plugin": "^2.5.1",
+    "@eslint-react/eslint-plugin": "^2.5.3",
     "@playwright/test": "^1.57.0",
     "@rsbuild/plugin-react": "^1.4.2",
     "@testing-library/jest-dom": "^6.9.1",
@@ -80,7 +80,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/morgan": "^1.9.10",
-    "@types/node": "^24.10.4",
+    "@types/node": "^24.10.6",
     "@types/react": "19.2.7",
     "@types/react-dom": "^19.2.3",
     "@types/react-lazy-load-image-component": "^1.6.5",
@@ -97,7 +97,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.26",
     "follow-redirects": "^1.15.11",
-    "happy-dom": "^20.0.11",
+    "happy-dom": "^20.1.0",
     "husky": "^9.1.7",
     "ieee754": "^1.2.1",
     "jsdom": "^27.4.0",
@@ -116,7 +116,7 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
     "typescript": "5.9.3",
-    "typescript-eslint": "^8.51.0",
+    "typescript-eslint": "^8.52.0",
     "vitest": "^4.0.16",
     "zod": "^4.3.5"
   }
