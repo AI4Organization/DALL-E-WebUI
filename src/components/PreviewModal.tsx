@@ -9,6 +9,7 @@ import {
   RightOutlined,
 } from '@ant-design/icons';
 import { Modal, Button, Tooltip, Slider } from 'antd';
+import { FocusTrap } from 'focus-trap-react';
 import { motion } from 'framer-motion';
 import { memo, useEffect, useState, useRef } from 'react';
 
@@ -60,7 +61,19 @@ export const PreviewModal = memo<PreviewModalProps>(({
   const [fitMode, setFitMode] = useState<FitMode>('contain');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isModalReady, setIsModalReady] = useState(false);
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Set modal ready state when modal is open
+  useEffect(() => {
+    if (navigationImages.length > 0 && currentNavIndex >= 0) {
+      // Small delay to ensure DOM is fully rendered
+      const timer = setTimeout(() => setIsModalReady(true), 100);
+      return () => clearTimeout(timer);
+    } else {
+      setIsModalReady(false);
+    }
+  }, [navigationImages.length, currentNavIndex]);
 
   // Simple functions (no useCallback to avoid dependency chains)
   const zoomIn = () => {
@@ -209,62 +222,70 @@ export const PreviewModal = memo<PreviewModalProps>(({
       rootClassName="image-preview-modal-root"
       wrapClassName="image-preview-modal-wrap"
     >
-      {/* Image Container with Zoom/Pan */}
-      <div
-        className="relative preview-image-container"
-        style={{
-          backgroundColor: theme === 'dark' ? 'rgba(10, 10, 18, 0.3)' : 'rgba(248, 249, 252, 0.3)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          height: '90vh',
-          borderRadius: '12px',
-          overflow: 'hidden',
-          cursor: isDragging ? 'grabbing' : (zoomLevel > 100 || fitMode === 'actual') ? 'grab' : 'default',
+      <FocusTrap
+        active={navigationImages.length > 0 && isModalReady}
+        focusTrapOptions={{
+          fallbackFocus: '.preview-fallback-focus',
+          allowOutsideClick: true,
+          escapeDeactivates: false,
         }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onKeyDown={handleKeyDown}
-        tabIndex={0}
       >
-        {currentImageUrl && (
-          <motion.div
-            key={currentImageUrl}
-            className="preview-image-wrapper"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              width: '100%',
-            }}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: imageLoaded ? 1 : 0.5 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* Main Image */}
-            <motion.img
-              src={currentImageUrl}
-              alt={`Preview ${currentNavIndex + 1}`}
-              draggable={false}
-              className="preview-image"
+        {/* Image Container with Zoom/Pan */}
+        <div
+          className="relative preview-image-container"
+          style={{
+            backgroundColor: theme === 'dark' ? 'rgba(10, 10, 18, 0.3)' : 'rgba(248, 249, 252, 0.3)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+            height: '90vh',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            cursor: isDragging ? 'grabbing' : (zoomLevel > 100 || fitMode === 'actual') ? 'grab' : 'default',
+          }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onKeyDown={handleKeyDown}
+          tabIndex={-1}
+        >
+          {currentImageUrl ? (
+            <motion.div
+              key={currentImageUrl}
+              className="preview-image-wrapper"
               style={{
-                maxWidth: fitMode === 'fill' ? '100%' : '100%',
-                maxHeight: fitMode === 'fill' ? '100%' : '100%',
-                objectFit: fitMode === 'contain' ? 'contain' : fitMode === 'fill' ? 'fill' : 'none',
-                transform: `scale(${zoomLevel / 100}) translate(${panPosition.x / (zoomLevel / 100)}px, ${panPosition.y / (zoomLevel / 100)}px)`,
-                transition: isDragging ? 'none' : 'transform 0.1s ease-out',
-                userSelect: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                width: '100%',
               }}
-              onDoubleClick={zoomReset}
-              onLoad={() => setImageLoaded(true)}
-            />
-          </motion.div>
-        )}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: imageLoaded ? 1 : 0.5 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Main Image */}
+              <motion.img
+                src={currentImageUrl}
+                alt={`Preview ${currentNavIndex + 1}`}
+                draggable={false}
+                className="preview-image"
+                style={{
+                  maxWidth: fitMode === 'fill' ? '100%' : '100%',
+                  maxHeight: fitMode === 'fill' ? '100%' : '100%',
+                  objectFit: fitMode === 'contain' ? 'contain' : fitMode === 'fill' ? 'fill' : 'none',
+                  transform: `scale(${zoomLevel / 100}) translate(${panPosition.x / (zoomLevel / 100)}px, ${panPosition.y / (zoomLevel / 100)}px)`,
+                  transition: isDragging ? 'none' : 'transform 0.1s ease-out',
+                  userSelect: 'none',
+                }}
+                onDoubleClick={zoomReset}
+                onLoad={() => setImageLoaded(true)}
+              />
+            </motion.div>
+          ) : null}
 
         {/* Floating Control Bar - Always Visible */}
         <div
@@ -418,7 +439,26 @@ export const PreviewModal = memo<PreviewModalProps>(({
         >
           +/-: Zoom • 0: Reset • F: Fit Mode • F11: Fullscreen • ESC: Close
         </div>
+
+        {/* Fallback focus element for focus-trap */}
+        <button
+          className="preview-fallback-focus"
+          tabIndex={-1}
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: 'hidden',
+            clip: 'rect(0, 0, 0, 0)',
+            whiteSpace: 'nowrap',
+            borderWidth: 0,
+          }}
+        />
       </div>
+      </FocusTrap>
 
       {/* Modal Styles */}
       <style>{`

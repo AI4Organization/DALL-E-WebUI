@@ -130,3 +130,4 @@ dist
 .pnp.*
 .env.cc
 .DS_Store
+!openrouter-debug.log

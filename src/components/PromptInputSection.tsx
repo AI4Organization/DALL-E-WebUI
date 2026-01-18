@@ -1,7 +1,7 @@
 import { PictureOutlined, StarOutlined } from '@ant-design/icons';
 import { Input } from 'antd';
 import { motion } from 'framer-motion';
-import { memo } from 'react';
+import { memo, startTransition } from 'react';
 
 import { useAutoResizeTextArea } from '../hooks/useAutoResizeTextArea';
 
@@ -49,15 +49,24 @@ export const PromptInputSection = memo<PromptInputSectionProps>(({
       <AntTextArea
         ref={ref}
         value={prompt}
-        onChange={(e) => onPromptChange(e.target.value)}
+        onChange={(e) => {
+          const value = e.target.value;
+          startTransition(() => {
+            onPromptChange(value);
+          });
+        }}
         placeholder="A futuristic city at sunset, with flying cars and neon lights reflecting off glass buildings..."
         autoSize={false}
         maxLength={maxLength}
         style={{ height, overflowY: 'auto' }}
         className="glass-input text-base! resize-none"
+        autoComplete="off"
+        spellCheck={true}
+        aria-label="Image generation prompt"
+        aria-describedby="prompt-char-count"
       />
       {/* Custom character count display */}
-      <div className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-gray-500">
+      <div id="prompt-char-count" className="absolute bottom-3 right-3 flex items-center gap-2 text-xs text-gray-500">
         <span>
           {prompt.length} / {maxLength} characters
         </span>

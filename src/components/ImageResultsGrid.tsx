@@ -610,6 +610,12 @@ export const ImageResultsGrid = memo<ImageResultsGridProps>(({
         .glass-card:hover {
           transform: translateY(-8px);
         }
+
+        /* Content visibility for image cards */
+        .glass-card {
+          content-visibility: auto;
+          contain-intrinsic-size: 0 300px;
+        }
       `}</style>
     </motion.div>
   );

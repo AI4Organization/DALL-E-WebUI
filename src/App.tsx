@@ -19,7 +19,6 @@ import { EmptyState } from './components/EmptyState';
 import { ImageResultsGrid } from './components/ImageResultsGrid';
 import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { PromptInputSection } from './components/PromptInputSection';
-import { SettingsGrid } from './components/SettingsGrid';
 import { ThemeToggle } from './components/ThemeToggle';
 import { downloadAndSave } from './lib/api/download';
 import { getImageDisplayUrl, hasDownloadableImage } from './lib/api/image-generation';
@@ -30,6 +29,11 @@ import { useImageStore } from './stores/useImageStore';
 // Lazy load PreviewModal for code splitting
 const LazyPreviewModal = lazy(() =>
   import('./components/PreviewModal').then((m) => ({ default: m.PreviewModal }))
+);
+
+// Lazy load SettingsGrid for code splitting
+const LazySettingsGrid = lazy(() =>
+  import('./components/SettingsGrid').then((m) => ({ default: m.SettingsGrid }))
 );
 
 // Get API base URL from definePlugin in rsbuild.config.ts
@@ -850,25 +854,27 @@ export default function App(): React.ReactElement {
                 />
 
                 {/* Settings Grid */}
-                <SettingsGrid
-                  model={model}
-                  onModelChange={setModel}
-                  availableModels={availableModels}
-                  configLoading={configLoading}
-                  quality={quality}
-                  onQualityChange={setQuality}
-                  size={size}
-                  onSizeChange={setSize}
-                  number={number}
-                  onNumberChange={setNumber}
-                  style={style}
-                  onStyleChange={setStyle}
-                  outputFormat={outputFormat}
-                  onOutputFormatChange={setOutputFormat}
-                  background={background}
-                  onBackgroundChange={setBackground}
-                  isGenerationInProgress={isGenerationInProgress}
-                />
+                <Suspense fallback={<div className="text-center text-gray-400 py-4">Loading settings...</div>}>
+                  <LazySettingsGrid
+                    model={model}
+                    onModelChange={setModel}
+                    availableModels={availableModels}
+                    configLoading={configLoading}
+                    quality={quality}
+                    onQualityChange={setQuality}
+                    size={size}
+                    onSizeChange={setSize}
+                    number={number}
+                    onNumberChange={setNumber}
+                    style={style}
+                    onStyleChange={setStyle}
+                    outputFormat={outputFormat}
+                    onOutputFormatChange={setOutputFormat}
+                    background={background}
+                    onBackgroundChange={setBackground}
+                    isGenerationInProgress={isGenerationInProgress}
+                  />
+                </Suspense>
 
                 {/* Generate Button */}
                 <motion.div className="relative" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>

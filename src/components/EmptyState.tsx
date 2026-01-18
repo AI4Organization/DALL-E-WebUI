@@ -1,6 +1,9 @@
 import { PictureOutlined } from '@ant-design/icons';
-import { motion, type Variants } from 'framer-motion';
+import { motion, type Easing, type Transition, type Variants } from 'framer-motion';
 import { memo, useMemo, useState } from 'react';
+
+// Valid animation style indices
+type AnimationStyle = 0 | 1 | 2 | 3 | 4;
 
 export interface EmptyStateProps {
   /** Variants for Framer Motion animations */
@@ -11,7 +14,7 @@ export interface EmptyStateProps {
  * Helper function to get a new animation style that's different from the last one
  * Uses localStorage to persist the last animation across page refreshes
  */
-const getNewAnimationStyle = (): number => {
+const getNewAnimationStyle = (): AnimationStyle => {
   const lastAnimation = parseInt(localStorage.getItem('emptystate-last-animation') || '-1');
   let newAnimation: number;
   // Keep rolling until we get a different animation
@@ -20,7 +23,7 @@ const getNewAnimationStyle = (): number => {
   } while (newAnimation === lastAnimation);
   // Store the new animation for next time
   localStorage.setItem('emptystate-last-animation', String(newAnimation));
-  return newAnimation;
+  return newAnimation as AnimationStyle;
 };
 
 /**
@@ -42,17 +45,50 @@ const getNewAnimationStyle = (): number => {
 export const EmptyState = memo<EmptyStateProps>(function EmptyState({ variants }) {
   // Use function initializer to avoid initial render mismatch
   // This ensures the random animation is selected during initial render
-  const [animationStyle] = useState<number>(getNewAnimationStyle);
+  const [animationStyle] = useState<AnimationStyle>(getNewAnimationStyle);
+
+  // Type definition for background variant
+  type BackgroundVariant = {
+    animate: { scale?: number[]; rotate?: number[]; y?: number[]; opacity?: number[] };
+    transition: { duration: number; repeat: number; ease?: Easing };
+    style: { background: string };
+  };
+
+  // Type definition for particle variant - use proper discriminated union
+  interface MotionParticleVariant {
+    animate: { y?: number[]; opacity?: number[]; scale?: number[] };
+    transition: { duration: number; repeat: number; ease?: Easing };
+    style?: undefined;
+  }
+
+  interface CssParticleVariant {
+    style: { animation: string };
+  }
+
+  type ParticleVariant = MotionParticleVariant | CssParticleVariant;
+
+  // Type guard to check if particle variant uses Motion animation
+  const isMotionParticle = (variant: ParticleVariant): variant is MotionParticleVariant => {
+    return 'animate' in variant;
+  };
+
+  // Type definition for icon variant
+  type IconVariant = {
+    animate: { scale?: number[]; rotate?: number[]; y?: number[] };
+    transition: { duration: number; repeat: number; ease?: Easing };
+    className: string;
+    style: { animation: string } | undefined;
+  };
 
   // Memoize animation variants to prevent recreation on every render
   // This fixes the blank page bug caused by object reference changes
-  const backgroundVariants = useMemo(() => ({
+  const backgroundVariants = useMemo<Record<AnimationStyle, BackgroundVariant>>(() => ({
     0: { // Float & Pulse
       animate: {
         scale: [1, 1.2, 1],
         rotate: [0, 180, 360],
       },
-      transition: { duration: 20, repeat: Infinity, ease: 'linear' },
+      transition: { duration: 20, repeat: Infinity, ease: 'linear' as Easing },
       style: {
         background: 'conic-gradient(from 0deg, #a855f7, #ec4899, #22d3d3, #a855f7)',
       },
@@ -62,7 +98,7 @@ export const EmptyState = memo<EmptyStateProps>(function EmptyState({ variants }
         scale: [1, 1.3, 1],
         opacity: [0.1, 0.3, 0.1],
       },
-      transition: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
+      transition: { duration: 4, repeat: Infinity, ease: 'easeInOut' as Easing },
       style: {
         background: 'radial-gradient(circle, #a855f7 0%, #ec4899 50%, #22d3d3 100%)',
       },
@@ -71,7 +107,7 @@ export const EmptyState = memo<EmptyStateProps>(function EmptyState({ variants }
       animate: {
         rotate: [0, 360, 0],
       },
-      transition: { duration: 15, repeat: Infinity, ease: 'linear' },
+      transition: { duration: 15, repeat: Infinity, ease: 'linear' as Easing },
       style: {
         background: 'conic-gradient(from 0deg, #22d3d3, #a855f7, #ec4899, #22d3d3)',
       },
@@ -80,7 +116,7 @@ export const EmptyState = memo<EmptyStateProps>(function EmptyState({ variants }
       animate: {
         y: [0, -10, 10, 0],
       },
-      transition: { duration: 6, repeat: Infinity, ease: 'easeInOut' },
+      transition: { duration: 6, repeat: Infinity, ease: 'easeInOut' as Easing },
       style: {
         background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 50%, #22d3d3 100%)',
       },
@@ -90,7 +126,7 @@ export const EmptyState = memo<EmptyStateProps>(function EmptyState({ variants }
         y: [0, -15, 0],
         scale: [1, 1.1, 1],
       },
-      transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
+      transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' as Easing },
       style: {
         background: 'conic-gradient(from 180deg, #ec4899, #22d3d3, #a855f7, #ec4899)',
       },
@@ -99,16 +135,16 @@ export const EmptyState = memo<EmptyStateProps>(function EmptyState({ variants }
 
   // Memoize particle animations for each style
   // Using consistent structure with animate, transition, and optional style properties
-  const particleVariants = useMemo(() => ({
+  const particleVariants = useMemo<Record<AnimationStyle, ParticleVariant[]>>(() => ({
     0: [ // Float & Pulse
-      { animate: { y: [0, -20, 0], opacity: [0.3, 0.6, 0.3] }, transition: { duration: 3, repeat: Infinity } },
-      { animate: { y: [0, -25, 0], opacity: [0.4, 0.7, 0.4] }, transition: { duration: 3.5, repeat: Infinity } },
-      { animate: { y: [0, -15, 0], opacity: [0.3, 0.5, 0.3] }, transition: { duration: 2.5, repeat: Infinity } },
+      { animate: { y: [0, -20, 0], opacity: [0.3, 0.6, 0.3] }, transition: { duration: 3, repeat: Infinity, ease: undefined as Easing | undefined } },
+      { animate: { y: [0, -25, 0], opacity: [0.4, 0.7, 0.4] }, transition: { duration: 3.5, repeat: Infinity, ease: undefined as Easing | undefined } },
+      { animate: { y: [0, -15, 0], opacity: [0.3, 0.5, 0.3] }, transition: { duration: 2.5, repeat: Infinity, ease: undefined as Easing | undefined } },
     ],
     1: [ // Breathe & Glow - Expand from center
-      { animate: { scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }, transition: { duration: 3, repeat: Infinity } },
-      { animate: { scale: [1, 2.5, 1], opacity: [0.4, 0, 0.4] }, transition: { duration: 3.5, repeat: Infinity } },
-      { animate: { scale: [1, 1.8, 1], opacity: [0.3, 0, 0.3] }, transition: { duration: 2.5, repeat: Infinity } },
+      { animate: { scale: [1, 2, 1], opacity: [0.5, 0, 0.5] }, transition: { duration: 3, repeat: Infinity, ease: undefined as Easing | undefined } },
+      { animate: { scale: [1, 2.5, 1], opacity: [0.4, 0, 0.4] }, transition: { duration: 3.5, repeat: Infinity, ease: undefined as Easing | undefined } },
+      { animate: { scale: [1, 1.8, 1], opacity: [0.3, 0, 0.3] }, transition: { duration: 2.5, repeat: Infinity, ease: undefined as Easing | undefined } },
     ],
     2: [ // Orbit & Spin - Use CSS animations for orbit
       { style: { animation: 'orbit-clockwise 8s linear infinite' } },
@@ -116,46 +152,46 @@ export const EmptyState = memo<EmptyStateProps>(function EmptyState({ variants }
       { style: { animation: 'orbit-clockwise 12s linear infinite' } },
     ],
     3: [ // Wave & Ripple
-      { animate: { y: [0, -15, 15, 0], opacity: [0.3, 0.6, 0.6, 0.3] }, transition: { duration: 4, repeat: Infinity } },
-      { animate: { y: [0, 15, -15, 0], opacity: [0.3, 0.6, 0.6, 0.3] }, transition: { duration: 4, repeat: Infinity } },
-      { animate: { y: [0, -10, 10, 0], opacity: [0.3, 0.5, 0.5, 0.3] }, transition: { duration: 3, repeat: Infinity } },
+      { animate: { y: [0, -15, 15, 0], opacity: [0.3, 0.6, 0.6, 0.3] }, transition: { duration: 4, repeat: Infinity, ease: undefined as Easing | undefined } },
+      { animate: { y: [0, 15, -15, 0], opacity: [0.3, 0.6, 0.6, 0.3] }, transition: { duration: 4, repeat: Infinity, ease: undefined as Easing | undefined } },
+      { animate: { y: [0, -10, 10, 0], opacity: [0.3, 0.5, 0.5, 0.3] }, transition: { duration: 3, repeat: Infinity, ease: undefined as Easing | undefined } },
     ],
     4: [ // Bounce & Elastic
-      { animate: { y: [0, -30, 0, -15, 0], scale: [1, 1.2, 0.9, 1.1, 1] }, transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' } },
-      { animate: { y: [0, -25, 0, -12, 0], scale: [1, 1.15, 0.95, 1.05, 1] }, transition: { duration: 2.2, repeat: Infinity, ease: 'easeInOut' } },
-      { animate: { y: [0, -20, 0, -10, 0], scale: [1, 1.1, 0.95, 1.05, 1] }, transition: { duration: 1.8, repeat: Infinity, ease: 'easeInOut' } },
+      { animate: { y: [0, -30, 0, -15, 0], scale: [1, 1.2, 0.9, 1.1, 1] }, transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' as Easing } },
+      { animate: { y: [0, -25, 0, -12, 0], scale: [1, 1.15, 0.95, 1.05, 1] }, transition: { duration: 2.2, repeat: Infinity, ease: 'easeInOut' as Easing } },
+      { animate: { y: [0, -20, 0, -10, 0], scale: [1, 1.1, 0.95, 1.05, 1] }, transition: { duration: 1.8, repeat: Infinity, ease: 'easeInOut' as Easing } },
     ],
   }), []);
 
   // Memoize icon animations for each style
-  const iconVariants = useMemo(() => ({
+  const iconVariants = useMemo<Record<AnimationStyle, IconVariant>>(() => ({
     0: { // Float & Pulse
       animate: { scale: [1, 1.05, 1], rotate: [0, 5, -5, 0] },
-      transition: { duration: 4, repeat: Infinity },
+      transition: { duration: 4, repeat: Infinity, ease: undefined as Easing | undefined },
       className: '',
       style: undefined,
     },
     1: { // Breathe & Glow
       animate: { scale: [1, 1.15, 1] },
-      transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' },
+      transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' as Easing },
       className: 'shadow-2xl',
       style: { animation: 'glow-pulse 2s ease-in-out infinite' },
     },
     2: { // Orbit & Spin
-      animate: { rotate: 360 },
-      transition: { duration: 10, repeat: Infinity, ease: 'linear' },
+      animate: { rotate: [0, 360] },
+      transition: { duration: 10, repeat: Infinity, ease: 'linear' as Easing },
       className: '',
       style: undefined,
     },
     3: { // Wave & Ripple
       animate: { y: [0, -8, 8, 0] },
-      transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' },
+      transition: { duration: 3, repeat: Infinity, ease: 'easeInOut' as Easing },
       className: '',
       style: undefined,
     },
     4: { // Bounce & Elastic
       animate: { y: [0, -20, 0] },
-      transition: { duration: 1.5, repeat: Infinity, ease: 'easeInOut' },
+      transition: { duration: 1.5, repeat: Infinity, ease: 'easeInOut' as Easing },
       className: '',
       style: undefined,
     },
@@ -191,13 +227,13 @@ export const EmptyState = memo<EmptyStateProps>(function EmptyState({ variants }
         };
 
         // Determine if this particle uses Framer Motion or CSS animation
-        const hasMotionAnimate = particle.animate !== undefined;
-        const hasCssAnimation = particle.style?.animation !== undefined;
+        const isMotion = isMotionParticle(particle);
+        const hasCssAnimation = !isMotion && particle.style?.animation !== undefined;
 
         return (
           <motion.div
             key={i}
-            {...(hasMotionAnimate && { animate: particle.animate, transition: particle.transition })}
+            {...(isMotion && { animate: particle.animate, transition: particle.transition })}
             className="absolute w-4 h-4 rounded-full"
             style={{
               ...baseStyle,
